@@ -1,11 +1,14 @@
 package com.qiyam.shared.client;
 
 import com.qiyam.shared.config.AppProperties;
+import com.qiyam.shared.exception.SupabaseException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.*;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.*;
@@ -32,41 +35,67 @@ public class SupabaseClient {
     // ─── Generic CRUD ────────────────────────────────────────────────
 
     public <T> List<T> getAll(String table, Map<String, String> params, Class<T> clazz) {
-        var url = buildUrl(table, params);
-        var entity = new HttpEntity<>(headers());
-        log.debug("GET {}", url);
-        var response = restTemplate.exchange(
-                url, HttpMethod.GET, entity,
-                new ParameterizedTypeReference<List<T>>() {});
-        return response.getBody() != null ? response.getBody() : List.of();
+        try {
+            var url = buildUrl(table, params);
+            var entity = new HttpEntity<>(headers());
+            log.debug("GET {}", url);
+            var response = restTemplate.exchange(
+                    url, HttpMethod.GET, entity,
+                    new ParameterizedTypeReference<List<T>>() {});
+            return response.getBody() != null ? response.getBody() : List.of();
+        } catch (HttpClientErrorException.NotFound e) {
+            return List.of();
+        } catch (HttpClientErrorException | HttpServerErrorException e) {
+            log.error("Supabase GET error [{}]: {}", e.getStatusCode(), e.getResponseBodyAsString());
+            throw new SupabaseException(e.getStatusCode().value(), "Failed to fetch " + table + ": " + e.getMessage());
+        }
     }
 
     public <T> Optional<T> getOne(String table, String column, String value, Class<T> clazz) {
-        var params = Map.of(column, "eq." + value);
-        var results = getAll(table, params, clazz);
-        return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
+        try {
+            var params = Map.of(column, "eq." + value);
+            var results = getAll(table, params, clazz);
+            return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
+        } catch (SupabaseException e) {
+            throw e;
+        }
     }
 
     public <T> T post(String table, Object body, Class<T> clazz) {
-        var url = baseUrl() + "/" + table;
-        var entity = new HttpEntity<>(body, headers());
-        log.debug("POST {}", url);
-        return restTemplate.postForObject(url, entity, clazz);
+        try {
+            var url = baseUrl() + "/" + table;
+            var entity = new HttpEntity<>(body, headers());
+            log.debug("POST {}", url);
+            return restTemplate.postForObject(url, entity, clazz);
+        } catch (HttpClientErrorException | HttpServerErrorException e) {
+            log.error("Supabase POST error [{}]: {}", e.getStatusCode(), e.getResponseBodyAsString());
+            throw new SupabaseException(e.getStatusCode().value(), "Failed to create " + table + ": " + e.getMessage());
+        }
     }
 
     public <T> T patch(String table, String column, String value, Object body, Class<T> clazz) {
-        var url = baseUrl() + "/" + table + "?" + column + "=eq." + value;
-        var entity = new HttpEntity<>(body, headers());
-        log.debug("PATCH {}", url);
-        var response = restTemplate.exchange(url, HttpMethod.PATCH, entity, clazz);
-        return response.getBody();
+        try {
+            var url = baseUrl() + "/" + table + "?" + column + "=eq." + value;
+            var entity = new HttpEntity<>(body, headers());
+            log.debug("PATCH {}", url);
+            var response = restTemplate.exchange(url, HttpMethod.PATCH, entity, clazz);
+            return response.getBody();
+        } catch (HttpClientErrorException | HttpServerErrorException e) {
+            log.error("Supabase PATCH error [{}]: {}", e.getStatusCode(), e.getResponseBodyAsString());
+            throw new SupabaseException(e.getStatusCode().value(), "Failed to update " + table + ": " + e.getMessage());
+        }
     }
 
     public void delete(String table, String column, String value) {
-        var url = baseUrl() + "/" + table + "?" + column + "=eq." + value;
-        var entity = new HttpEntity<>(headers());
-        log.debug("DELETE {}", url);
-        restTemplate.exchange(url, HttpMethod.DELETE, entity, Void.class);
+        try {
+            var url = baseUrl() + "/" + table + "?" + column + "=eq." + value;
+            var entity = new HttpEntity<>(headers());
+            log.debug("DELETE {}", url);
+            restTemplate.exchange(url, HttpMethod.DELETE, entity, Void.class);
+        } catch (HttpClientErrorException | HttpServerErrorException e) {
+            log.error("Supabase DELETE error [{}]: {}", e.getStatusCode(), e.getResponseBodyAsString());
+            throw new SupabaseException(e.getStatusCode().value(), "Failed to delete from " + table + ": " + e.getMessage());
+        }
     }
 
     // ─── Auth ────────────────────────────────────────────────────────
