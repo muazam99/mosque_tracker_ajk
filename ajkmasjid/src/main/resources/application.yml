@@ -36,7 +36,7 @@ springdoc:
 
 app:
   jwt:
-    secret: ${APP_JWT_SECRET:ajkmasjid-jwt-secret-key-must-be-at-least-256-bits-long-for-hs256}
+    secret: ${APP_JWT_SECRET}
     expiration-ms: ${APP_JWT_EXPIRATION_MS:86400000}
     issuer: qiyam-ajk
   security:
@@ -56,14 +56,14 @@ app:
       - /swagger-resources/**
       - /actuator/health
   supabase:
-    url: ${SUPABASE_URL:https://qiyamdb.hashtech.app}
-    anon-key: ${SUPABASE_ANON_KEY:eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc2NzcwNzI4MCwiZXhwIjo0OTIzMzgwODgwLCJyb2xlIjoiYW5vbiJ9.k2PC_q75f0uuxDk_q8wuxxT3PxtjQYktgpfdHEUgylE}
-    service-role-key: ${SUPABASE_SERVICE_ROLE_KEY:eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTc2NzcwNzI4MCwiZXhwIjo0OTIzMzgwODgwLCJyb2xlIjoic2VydmljZV9yb2xlIn0.szPMIZmG6r9AHBDxcBSONGc0nWk-WxWAvKuqS7TFcqM}
+    url: ${SUPABASE_URL}
+    anon-key: ${SUPABASE_ANON_KEY}
+    service-role-key: ${SUPABASE_SERVICE_ROLE_KEY}
   storage:
     r2-account-id: ${R2_ACCOUNT_ID:}
     r2-access-key-id: ${R2_ACCESS_KEY_ID:}
     r2-secret-access-key: ${R2_SECRET_ACCESS_KEY:}
     r2-bucket-name: ${R2_BUCKET_NAME:qiyam-storage}
-    r2-base-url: ${R2_BASE_URL:https://assets.catchupmobility.com}
+    r2-base-url: ${R2_BASE_URL:}
   google:
     places-api-key: ${GOOGLE_PLACES_API_KEY:}
