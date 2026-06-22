@@ -1,0 +1,14 @@
+.git
+.gitignore
+.env
+.env.*
+*.md
+node_modules/
+logs/
+*.log
+target/
+*.jar
+*.war
+.idea/
+.vscode/
+*.iml

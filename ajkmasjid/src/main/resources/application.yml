@@ -42,19 +42,13 @@ app:
   security:
     permitted-paths:
       - /auth/**
-      - /mosques/**
-      - /finance/**
-      - /committees/**
-      - /announcements/**
-      - /activities/**
-      - /donations/**
-      - /meetings/**
-      - /documents/**
-      - /users/**
-      - /swagger-ui/**
-      - /api-docs/**
-      - /swagger-resources/**
-      - /actuator/health
+      - /actuator/health/readiness
+      - /actuator/health/liveness
+  cors:
+    allowed-origins:
+      - http://localhost:3000
+      - http://localhost:5173
+      # - https://your-frontend-domain.com  # Add your production frontend URL here
   supabase:
     url: ${SUPABASE_URL}
     anon-key: ${SUPABASE_ANON_KEY}

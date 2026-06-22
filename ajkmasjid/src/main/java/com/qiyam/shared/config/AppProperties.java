@@ -11,12 +11,14 @@ import java.util.List;
 public record AppProperties(
         Jwt jwt,
         Security security,
+        Cors cors,
         Supabase supabase,
         Storage storage,
         Google google
 ) {
     public record Jwt(@NotBlank String secret, long expirationMs, String issuer) {}
     public record Security(List<String> permittedPaths) {}
+    public record Cors(List<String> allowedOrigins) {}
     public record Supabase(String url, String anonKey, String serviceRoleKey) {}
     public record Storage(String r2AccountId, String r2AccessKeyId, String r2SecretAccessKey, String r2BucketName, String r2BaseUrl) {}
     public record Google(String placesApiKey) {}
