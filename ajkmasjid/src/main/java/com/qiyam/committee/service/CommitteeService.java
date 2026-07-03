@@ -3,6 +3,8 @@ package com.qiyam.committee.service;
 import com.qiyam.committee.dto.CommitteeRequest;
 import com.qiyam.committee.dto.MemberRequest;
 import com.qiyam.shared.client.SupabaseClient;
+import com.qiyam.shared.security.AccessControlService;
+import com.qiyam.shared.security.Permission;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -13,10 +15,12 @@ import java.util.*;
 @RequiredArgsConstructor
 public class CommitteeService {
     private final SupabaseClient supabaseClient;
+    private final AccessControlService accessControlService;
 
     // ─── Committees (committee_roles) ─────────────────────────
 
     public List<Map<String, Object>> getAllCommittees(int limit, int offset) {
+        accessControlService.requirePermission(null, Permission.MEMBERS_READ);
         var params = new HashMap<String, String>();
         params.put("limit", String.valueOf(limit));
         params.put("offset", String.valueOf(offset));
@@ -25,28 +29,33 @@ public class CommitteeService {
     }
 
     public Optional<Map<String, Object>> getCommitteeById(Long id) {
+        accessControlService.requirePermission(null, Permission.MEMBERS_READ);
         return (Optional<Map<String, Object>>) (Optional<?>) supabaseClient.getOne("committee_roles", "id", String.valueOf(id), Map.class);
     }
 
     public Map<String, Object> createCommittee(CommitteeRequest request) {
+        accessControlService.requirePermission(null, Permission.MEMBERS_WRITE);
         var body = committeeToMap(request);
         var result = supabaseClient.post("committee_roles", body, Map.class);
         return result != null ? result : Map.of();
     }
 
     public Map<String, Object> updateCommittee(Long id, CommitteeRequest request) {
+        accessControlService.requirePermission(null, Permission.MEMBERS_WRITE);
         var body = committeeToMap(request);
         var result = supabaseClient.patch("committee_roles", "id", String.valueOf(id), body, Map.class);
         return result != null ? result : Map.of();
     }
 
     public void deleteCommittee(Long id) {
+        accessControlService.requirePermission(null, Permission.MEMBERS_DELETE);
         supabaseClient.delete("committee_roles", "id", String.valueOf(id));
     }
 
     // ─── Members (mosque_committees) ─────────────────────────
 
     public List<Map<String, Object>> getCommitteeMembers(Long committeeId) {
+        accessControlService.requirePermission(null, Permission.MEMBERS_READ);
         var params = new HashMap<String, String>();
         params.put("committee_role_id", "eq." + committeeId);
         params.put("order", "created_at.desc");
@@ -54,6 +63,7 @@ public class CommitteeService {
     }
 
     public Map<String, Object> addCommitteeMember(Long committeeId, MemberRequest request) {
+        accessControlService.requirePermission(null, Permission.MEMBERS_WRITE);
         request.setCommitteeRoleId(committeeId);
         var body = memberToMap(request);
         var result = supabaseClient.post("mosque_committees", body, Map.class);
@@ -61,6 +71,7 @@ public class CommitteeService {
     }
 
     public Map<String, Object> updateCommitteeMember(Long committeeId, Long memberId, MemberRequest request) {
+        accessControlService.requirePermission(null, Permission.MEMBERS_WRITE);
         request.setCommitteeRoleId(committeeId);
         var body = memberToMap(request);
         var result = supabaseClient.patch("mosque_committees", "id", String.valueOf(memberId), body, Map.class);
@@ -68,6 +79,7 @@ public class CommitteeService {
     }
 
     public void removeCommitteeMember(Long committeeId, Long memberId) {
+        accessControlService.requirePermission(null, Permission.MEMBERS_DELETE);
         supabaseClient.delete("mosque_committees", "id", String.valueOf(memberId));
     }
 

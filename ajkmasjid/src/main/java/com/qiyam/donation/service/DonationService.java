@@ -3,6 +3,8 @@ package com.qiyam.donation.service;
 import com.qiyam.donation.dto.CampaignRequest;
 import com.qiyam.donation.dto.DonationRequest;
 import com.qiyam.shared.client.SupabaseClient;
+import com.qiyam.shared.security.AccessControlService;
+import com.qiyam.shared.security.Permission;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -13,10 +15,12 @@ import java.util.*;
 @RequiredArgsConstructor
 public class DonationService {
     private final SupabaseClient supabaseClient;
+    private final AccessControlService accessControlService;
 
     // ─── Donations ─────────────────────────────────────────
 
     public List<Map<String, Object>> getAllDonations(int limit, int offset) {
+        accessControlService.requirePermission(null, Permission.DONATIONS_READ);
         var params = new HashMap<String, String>();
         params.put("limit", String.valueOf(limit));
         params.put("offset", String.valueOf(offset));
@@ -25,22 +29,26 @@ public class DonationService {
     }
 
     public Optional<Map<String, Object>> getDonationById(Long id) {
+        accessControlService.requirePermission(null, Permission.DONATIONS_READ);
         return (Optional<Map<String, Object>>) (Optional<?>) supabaseClient.getOne("donations", "id", String.valueOf(id), Map.class);
     }
 
     public Map<String, Object> createDonation(DonationRequest request) {
+        accessControlService.requirePermission(null, Permission.DONATIONS_WRITE);
         var body = donationToMap(request);
         var result = supabaseClient.post("donations", body, Map.class);
         return result != null ? result : Map.of();
     }
 
     public void deleteDonation(Long id) {
+        accessControlService.requirePermission(null, Permission.DONATIONS_DELETE);
         supabaseClient.delete("donations", "id", String.valueOf(id));
     }
 
     // ─── Campaigns ─────────────────────────────────────────
 
     public List<Map<String, Object>> getAllCampaigns(int limit, int offset) {
+        accessControlService.requirePermission(null, Permission.DONATIONS_READ);
         var params = new HashMap<String, String>();
         params.put("limit", String.valueOf(limit));
         params.put("offset", String.valueOf(offset));
@@ -49,16 +57,19 @@ public class DonationService {
     }
 
     public Optional<Map<String, Object>> getCampaignById(Long id) {
+        accessControlService.requirePermission(null, Permission.DONATIONS_READ);
         return (Optional<Map<String, Object>>) (Optional<?>) supabaseClient.getOne("donation_campaigns", "id", String.valueOf(id), Map.class);
     }
 
     public Map<String, Object> createCampaign(CampaignRequest request) {
+        accessControlService.requirePermission(null, Permission.DONATIONS_WRITE);
         var body = campaignToMap(request);
         var result = supabaseClient.post("donation_campaigns", body, Map.class);
         return result != null ? result : Map.of();
     }
 
     public Map<String, Object> updateCampaign(Long id, CampaignRequest request) {
+        accessControlService.requirePermission(null, Permission.DONATIONS_WRITE);
         var body = campaignToMap(request);
         var result = supabaseClient.patch("donation_campaigns", "id", String.valueOf(id), body, Map.class);
         return result != null ? result : Map.of();

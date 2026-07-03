@@ -40,15 +40,14 @@ app:
     expiration-ms: ${APP_JWT_EXPIRATION_MS:86400000}
     issuer: qiyam-ajk
   security:
+    swagger-enabled: false
     permitted-paths:
       - /auth/**
       - /actuator/health/readiness
       - /actuator/health/liveness
   cors:
     allowed-origins:
-      - http://localhost:3000
-      - http://localhost:5173
-      # - https://your-frontend-domain.com  # Add your production frontend URL here
+      - https://ajkapi.qiyam.com.my
   supabase:
     url: ${SUPABASE_URL}
     anon-key: ${SUPABASE_ANON_KEY}

@@ -2,6 +2,7 @@ package com.qiyam.shared.config;
 
 import com.qiyam.shared.security.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -33,17 +34,20 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         var paths = appProperties.security().permittedPaths();
+        var swaggerEnabled = appProperties.security().swaggerEnabled();
         http.csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> {
-                    // Swagger UI + API docs (explicitly permit all related resources)
-                    auth.requestMatchers(
-                            "/swagger-ui.html", "/swagger-ui/**",
-                            "/swagger-resources/**",
-                            "/v3/api-docs/**", "/api-docs/**",
-                            "/webjars/**", "/favicon.ico"
-                    ).permitAll();
+                    // Swagger UI + API docs — only accessible when explicitly enabled
+                    if (swaggerEnabled) {
+                        auth.requestMatchers(
+                                "/swagger-ui.html", "/swagger-ui/**",
+                                "/swagger-resources/**",
+                                "/v3/api-docs/**", "/api-docs/**",
+                                "/webjars/**", "/favicon.ico"
+                        ).permitAll();
+                    }
                     // App-specific permitted paths
                     paths.forEach(p -> auth.requestMatchers(p).permitAll());
                     auth.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()

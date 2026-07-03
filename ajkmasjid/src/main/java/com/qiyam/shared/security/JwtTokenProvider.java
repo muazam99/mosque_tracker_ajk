@@ -27,11 +27,16 @@ public class JwtTokenProvider {
     }
 
     public String generateToken(UUID userId, String username, String role) {
+        return generateToken(userId, username, role, null);
+    }
+
+    public String generateToken(UUID userId, String username, String role, Integer mosqueId) {
         var now = Instant.now();
         return Jwts.builder()
                 .subject(userId.toString())
                 .claim("username", username)
                 .claim("role", role)
+                .claim("mosqueId", mosqueId)
                 .issuer(issuer)
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plusMillis(expirationMs)))

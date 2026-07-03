@@ -1,8 +1,10 @@
 package com.qiyam.auth.dto;
 
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 
+/**
+ * Login request using Google OAuth.
+ * Frontend sends the access_token from Supabase Google sign-in.
+ */
 public record LoginRequest(
-        @NotBlank @Email String email,
-        @NotBlank String password) {}
+        @NotBlank String accessToken) {}

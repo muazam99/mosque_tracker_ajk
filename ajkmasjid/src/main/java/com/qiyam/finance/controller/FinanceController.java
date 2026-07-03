@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -58,6 +59,7 @@ public class FinanceController {
     }
 
     @DeleteMapping("/accounts/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Delete an account", description = "Deletes a financial account by ID")
     public ResponseEntity<Void> deleteAccount(@Parameter(description = "Account ID") @PathVariable Long id) {
         financeService.deleteAccount(id);

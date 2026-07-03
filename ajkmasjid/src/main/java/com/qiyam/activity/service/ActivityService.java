@@ -2,6 +2,8 @@ package com.qiyam.activity.service;
 
 import com.qiyam.activity.dto.ActivityRequest;
 import com.qiyam.shared.client.SupabaseClient;
+import com.qiyam.shared.security.AccessControlService;
+import com.qiyam.shared.security.Permission;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -12,8 +14,10 @@ import java.util.*;
 @RequiredArgsConstructor
 public class ActivityService {
     private final SupabaseClient supabaseClient;
+    private final AccessControlService accessControlService;
 
     public List<Map<String, Object>> getAll(int limit, int offset) {
+        accessControlService.requirePermission(null, Permission.ACTIVITIES_READ);
         var params = new HashMap<String, String>();
         params.put("limit", String.valueOf(limit));
         params.put("offset", String.valueOf(offset));
@@ -22,42 +26,49 @@ public class ActivityService {
     }
 
     public Optional<Map<String, Object>> getById(Long id) {
+        accessControlService.requirePermission(null, Permission.ACTIVITIES_READ);
         return (Optional<Map<String, Object>>) (Optional<?>) supabaseClient.getOne("mosque_activities", "id", String.valueOf(id), Map.class);
     }
 
     public Map<String, Object> create(ActivityRequest request) {
+        accessControlService.requirePermission(null, Permission.ACTIVITIES_WRITE);
         var body = toMap(request);
         var result = supabaseClient.post("mosque_activities", body, Map.class);
         return result != null ? result : Map.of();
     }
 
     public Map<String, Object> update(Long id, ActivityRequest request) {
+        accessControlService.requirePermission(null, Permission.ACTIVITIES_WRITE);
         var body = toMap(request);
         var result = supabaseClient.patch("mosque_activities", "id", String.valueOf(id), body, Map.class);
         return result != null ? result : Map.of();
     }
 
     public void delete(Long id) {
+        accessControlService.requirePermission(null, Permission.ACTIVITIES_DELETE);
         supabaseClient.delete("mosque_activities", "id", String.valueOf(id));
     }
 
     public Map<String, Object> updateStatus(Long id, String status) {
+        accessControlService.requirePermission(null, Permission.ACTIVITIES_WRITE);
         return supabaseClient.patch("mosque_activities", "id", String.valueOf(id), Map.of("activity_status", status), Map.class);
     }
 
     // ─── Registration ───────── use user_check_ins table ────
 
     public Map<String, Object> registerParticipant(Long activityId, Long userId) {
+        accessControlService.requirePermission(null, Permission.ACTIVITIES_WRITE);
         var body = Map.of(
             "activity_id", activityId,
             "user_id", userId,
-            "mosque_id", 0 // will be resolved or overridden
+            "mosque_id", 0
         );
         var result = supabaseClient.post("user_check_ins", body, Map.class);
         return result != null ? result : Map.of();
     }
 
     public void cancelRegistration(Long activityId, Long userId) {
+        accessControlService.requirePermission(null, Permission.ACTIVITIES_DELETE);
         supabaseClient.delete("user_check_ins", "activity_id", String.valueOf(activityId));
     }
 

@@ -4,6 +4,8 @@ import com.qiyam.finance.dto.FinanceAccountRequest;
 import com.qiyam.finance.dto.FinanceReportRequest;
 import com.qiyam.finance.dto.FinanceTransactionRequest;
 import com.qiyam.shared.client.SupabaseClient;
+import com.qiyam.shared.security.AccessControlService;
+import com.qiyam.shared.security.Permission;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -14,10 +16,12 @@ import java.util.*;
 @RequiredArgsConstructor
 public class FinanceService {
     private final SupabaseClient supabaseClient;
+    private final AccessControlService accessControlService;
 
     // ─── Accounts ─────────────────────────────────────────────
 
     public List<Map<String, Object>> getAllAccounts(int limit, int offset) {
+        accessControlService.requirePermission(null, Permission.FINANCE_READ);
         var params = new HashMap<String, String>();
         params.put("limit", String.valueOf(limit));
         params.put("offset", String.valueOf(offset));
@@ -26,28 +30,33 @@ public class FinanceService {
     }
 
     public Optional<Map<String, Object>> getAccountById(Long id) {
+        accessControlService.requirePermission(null, Permission.FINANCE_READ);
         return (Optional<Map<String, Object>>) (Optional<?>) supabaseClient.getOne("finance_accounts", "id", String.valueOf(id), Map.class);
     }
 
     public Map<String, Object> createAccount(FinanceAccountRequest request) {
+        accessControlService.requirePermission(null, Permission.FINANCE_WRITE);
         var body = accountToMap(request);
         var result = supabaseClient.post("finance_accounts", body, Map.class);
         return result != null ? result : Map.of();
     }
 
     public Map<String, Object> updateAccount(Long id, FinanceAccountRequest request) {
+        accessControlService.requirePermission(null, Permission.FINANCE_WRITE);
         var body = accountToMap(request);
         var result = supabaseClient.patch("finance_accounts", "id", String.valueOf(id), body, Map.class);
         return result != null ? result : Map.of();
     }
 
     public void deleteAccount(Long id) {
+        accessControlService.requirePermission(null, Permission.FINANCE_DELETE);
         supabaseClient.delete("finance_accounts", "id", String.valueOf(id));
     }
 
     // ─── Transactions ─────────────────────────────────────────
 
     public List<Map<String, Object>> getAllTransactions(int limit, int offset) {
+        accessControlService.requirePermission(null, Permission.FINANCE_READ);
         var params = new HashMap<String, String>();
         params.put("limit", String.valueOf(limit));
         params.put("offset", String.valueOf(offset));
@@ -56,10 +65,12 @@ public class FinanceService {
     }
 
     public Optional<Map<String, Object>> getTransactionById(Long id) {
+        accessControlService.requirePermission(null, Permission.FINANCE_READ);
         return (Optional<Map<String, Object>>) (Optional<?>) supabaseClient.getOne("finance_transactions", "id", String.valueOf(id), Map.class);
     }
 
     public Map<String, Object> createTransaction(FinanceTransactionRequest request) {
+        accessControlService.requirePermission(null, Permission.FINANCE_WRITE);
         var body = transactionToMap(request);
         var result = supabaseClient.post("finance_transactions", body, Map.class);
         return result != null ? result : Map.of();
@@ -68,6 +79,7 @@ public class FinanceService {
     // ─── Reports (finance_audits) ────────────────────────────
 
     public List<Map<String, Object>> getAllReports(int limit, int offset) {
+        accessControlService.requirePermission(null, Permission.REPORTS_READ);
         var params = new HashMap<String, String>();
         params.put("limit", String.valueOf(limit));
         params.put("offset", String.valueOf(offset));
@@ -76,10 +88,12 @@ public class FinanceService {
     }
 
     public Optional<Map<String, Object>> getReportById(Long id) {
+        accessControlService.requirePermission(null, Permission.REPORTS_READ);
         return (Optional<Map<String, Object>>) (Optional<?>) supabaseClient.getOne("finance_audits", "id", String.valueOf(id), Map.class);
     }
 
     public Map<String, Object> createReport(FinanceReportRequest request) {
+        accessControlService.requirePermission(null, Permission.REPORTS_WRITE);
         var body = reportToMap(request);
         var result = supabaseClient.post("finance_audits", body, Map.class);
         return result != null ? result : Map.of();

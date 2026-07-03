@@ -17,7 +17,7 @@ public record AppProperties(
         Google google
 ) {
     public record Jwt(@NotBlank String secret, long expirationMs, String issuer) {}
-    public record Security(List<String> permittedPaths) {}
+    public record Security(List<String> permittedPaths, boolean swaggerEnabled) {}
     public record Cors(List<String> allowedOrigins) {}
     public record Supabase(String url, String anonKey, String serviceRoleKey) {}
     public record Storage(String r2AccountId, String r2AccessKeyId, String r2SecretAccessKey, String r2BucketName, String r2BaseUrl) {}

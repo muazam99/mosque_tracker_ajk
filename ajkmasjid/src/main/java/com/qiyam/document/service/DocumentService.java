@@ -2,6 +2,8 @@ package com.qiyam.document.service;
 
 import com.qiyam.document.dto.DocumentRequest;
 import com.qiyam.shared.client.SupabaseClient;
+import com.qiyam.shared.security.AccessControlService;
+import com.qiyam.shared.security.Permission;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -12,8 +14,10 @@ import java.util.*;
 @RequiredArgsConstructor
 public class DocumentService {
     private final SupabaseClient supabaseClient;
+    private final AccessControlService accessControlService;
 
     public List<Map<String, Object>> getAll(int limit, int offset) {
+        accessControlService.requirePermission(null, Permission.DOCUMENTS_READ);
         var params = new HashMap<String, String>();
         params.put("limit", String.valueOf(limit));
         params.put("offset", String.valueOf(offset));
@@ -22,22 +26,26 @@ public class DocumentService {
     }
 
     public Optional<Map<String, Object>> getById(Long id) {
+        accessControlService.requirePermission(null, Permission.DOCUMENTS_READ);
         return (Optional<Map<String, Object>>) (Optional<?>) supabaseClient.getOne("mosque_documents", "id", String.valueOf(id), Map.class);
     }
 
     public Map<String, Object> upload(DocumentRequest request) {
+        accessControlService.requirePermission(null, Permission.DOCUMENTS_WRITE);
         var body = toMap(request);
         var result = supabaseClient.post("mosque_documents", body, Map.class);
         return result != null ? result : Map.of();
     }
 
     public Map<String, Object> update(Long id, DocumentRequest request) {
+        accessControlService.requirePermission(null, Permission.DOCUMENTS_WRITE);
         var body = toMap(request);
         var result = supabaseClient.patch("mosque_documents", "id", String.valueOf(id), body, Map.class);
         return result != null ? result : Map.of();
     }
 
     public void delete(Long id) {
+        accessControlService.requirePermission(null, Permission.DOCUMENTS_DELETE);
         supabaseClient.delete("mosque_documents", "id", String.valueOf(id));
     }
 

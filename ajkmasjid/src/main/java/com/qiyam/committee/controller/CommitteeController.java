@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -54,6 +55,7 @@ public class CommitteeController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Delete a committee", description = "Deletes a committee by ID")
     public ResponseEntity<Void> delete(@Parameter(description = "Committee ID") @PathVariable Long id) {
         committeeService.deleteCommittee(id);
@@ -87,6 +89,7 @@ public class CommitteeController {
     }
 
     @DeleteMapping("/{id}/members/{memberId}")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Remove committee member", description = "Removes a member from a specific committee")
     public ResponseEntity<Void> removeMember(@Parameter(description = "Committee ID") @PathVariable Long id, @Parameter(description = "Member ID") @PathVariable Long memberId) {
         committeeService.removeCommitteeMember(id, memberId);

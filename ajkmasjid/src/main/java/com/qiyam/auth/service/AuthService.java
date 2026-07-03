@@ -4,6 +4,8 @@ import com.qiyam.auth.dto.LoginRequest;
 import com.qiyam.auth.dto.LoginResponse;
 import com.qiyam.shared.client.SupabaseClient;
 import com.qiyam.shared.security.JwtTokenProvider;
+import com.qiyam.shared.security.Role;
+import com.qiyam.shared.security.RolePermissionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -16,27 +18,59 @@ import java.util.*;
 public class AuthService {
     private final SupabaseClient supabaseClient;
     private final JwtTokenProvider jwtTokenProvider;
+    private final RolePermissionService rolePermissionService;
 
     public LoginResponse login(LoginRequest request) {
-        var user = supabaseClient.authenticate(request.email(), request.password());
-        var userId = user.get("id").toString();
-        var email = (String) user.getOrDefault("email", userId);
-        var username = email;
+        // Step 1: Verify the Google OAuth access_token with Supabase
+        var supabaseUser = supabaseClient.authenticateWithGoogle(request.accessToken());
+        var email = (String) supabaseUser.getOrDefault("email", "");
 
-        // Generate our own JWT token with basic role (actual roles from DB if needed)
-        var role = (String) user.getOrDefault("role", "user");
+        if (email.isBlank()) {
+            log.warn("Login denied: no email returned from Google authentication");
+            throw new IllegalArgumentException("Google authentication failed: no email returned");
+        }
+
+        // Step 2: Check if the user exists in the local users table
+        var dbUserOpt = supabaseClient.getOne("users", "email", email, Map.class);
+        if (dbUserOpt.isEmpty()) {
+            log.warn("Login denied: email '{}' not registered in users table", email);
+            throw new IllegalArgumentException(
+                    "User not registered. Please register via Qiyam mobile apps first.");
+        }
+
+        var dbUser = dbUserOpt.get();
+        var userId = dbUser.get("id").toString();
+        var username = (String) dbUser.getOrDefault("username", email);
+        var fullName = (String) dbUser.getOrDefault("fullname", email);
+        var roleStr = (String) dbUser.getOrDefault("role", "PUBLIC_USER");
+
+        var role = Role.fromString(roleStr);
+
+        var permissions = rolePermissionService.getPermissions(role)
+                .stream()
+                .map(Enum::name)
+                .toList();
+
+        Integer mosqueId = null;
+        var mosqueIdObj = dbUser.get("mosque_id");
+        if (mosqueIdObj instanceof Number n) {
+            mosqueId = n.intValue();
+        }
+
         var token = jwtTokenProvider.generateToken(
-                UUID.fromString(userId), username, role.toUpperCase());
+                UUID.fromString(userId), username, role.name(), mosqueId);
 
-        log.info("User '{}' authenticated via Supabase", email);
+        log.info("User '{}' authenticated via Google OAuth, role={}, level={}, mosqueId={}",
+                email, role.name(), role.level(), mosqueId);
 
         return new LoginResponse(
                 UUID.fromString(userId),
                 username,
-                (String) user.getOrDefault("fullname", email),
+                fullName,
                 token,
-                List.of(role),
-                List.of()
+                role,
+                mosqueId,
+                permissions
         );
     }
 }

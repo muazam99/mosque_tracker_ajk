@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -51,6 +52,7 @@ public class ActivityController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Delete an activity", description = "Deletes an activity by ID")
     public ResponseEntity<Void> delete(@Parameter(description = "Activity ID") @PathVariable Long id) {
         activityService.delete(id);
@@ -73,6 +75,7 @@ public class ActivityController {
     }
 
     @DeleteMapping("/{id}/register")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Cancel registration", description = "Cancels a user's registration for an activity")
     public ResponseEntity<Void> cancelRegistration(
             @Parameter(description = "Activity ID") @PathVariable Long id,
