@@ -60,3 +60,4 @@ app:
     r2-base-url: ${R2_BASE_URL:}
   google:
     places-api-key: ${GOOGLE_PLACES_API_KEY:}
+    web-client-id: ${GOOGLE_WEB_CLIENT_ID:}

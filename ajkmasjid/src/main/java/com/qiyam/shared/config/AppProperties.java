@@ -21,5 +21,5 @@ public record AppProperties(
     public record Cors(List<String> allowedOrigins) {}
     public record Supabase(String url, String anonKey, String serviceRoleKey) {}
     public record Storage(String r2AccountId, String r2AccessKeyId, String r2SecretAccessKey, String r2BucketName, String r2BaseUrl) {}
-    public record Google(String placesApiKey) {}
+    public record Google(String placesApiKey, String webClientId) {}
 }

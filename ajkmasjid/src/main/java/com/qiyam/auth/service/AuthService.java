@@ -3,6 +3,7 @@ package com.qiyam.auth.service;
 import com.qiyam.auth.dto.LoginRequest;
 import com.qiyam.auth.dto.LoginResponse;
 import com.qiyam.shared.client.SupabaseClient;
+import com.qiyam.shared.security.GoogleAuthClient;
 import com.qiyam.shared.security.JwtTokenProvider;
 import com.qiyam.shared.security.Role;
 import com.qiyam.shared.security.RolePermissionService;
@@ -17,16 +18,19 @@ import java.util.*;
 @RequiredArgsConstructor
 public class AuthService {
     private final SupabaseClient supabaseClient;
+    private final GoogleAuthClient googleAuthClient;
     private final JwtTokenProvider jwtTokenProvider;
     private final RolePermissionService rolePermissionService;
 
     public LoginResponse login(LoginRequest request) {
-        // Step 1: Verify the Google OAuth access_token with Supabase
-        var supabaseUser = supabaseClient.authenticateWithGoogle(request.accessToken());
-        var email = (String) supabaseUser.getOrDefault("email", "");
+        // Step 1: Verify the Google ID token from frontend sign-in
+        var googleUser = googleAuthClient.verifyIdToken(request.accessToken());
+        var email = (String) googleUser.getOrDefault("email", "");
+        var fullName = (String) googleUser.getOrDefault("name", "");
+        var picture = (String) googleUser.getOrDefault("picture", "");
 
         if (email.isBlank()) {
-            log.warn("Login denied: no email returned from Google authentication");
+            log.warn("Login denied: no email returned from Google");
             throw new IllegalArgumentException("Google authentication failed: no email returned");
         }
 
@@ -41,7 +45,7 @@ public class AuthService {
         var dbUser = dbUserOpt.get();
         var userId = dbUser.get("id").toString();
         var username = (String) dbUser.getOrDefault("username", email);
-        var fullName = (String) dbUser.getOrDefault("fullname", email);
+        var dbFullName = (String) dbUser.getOrDefault("fullname", fullName.isBlank() ? email : fullName);
         var roleStr = (String) dbUser.getOrDefault("role", "PUBLIC_USER");
 
         var role = Role.fromString(roleStr);
@@ -60,13 +64,13 @@ public class AuthService {
         var token = jwtTokenProvider.generateToken(
                 UUID.fromString(userId), username, role.name(), mosqueId);
 
-        log.info("User '{}' authenticated via Google OAuth, role={}, level={}, mosqueId={}",
+        log.info("User '{}' authenticated via Google login, role={}, level={}, mosqueId={}",
                 email, role.name(), role.level(), mosqueId);
 
         return new LoginResponse(
                 UUID.fromString(userId),
                 username,
-                fullName,
+                dbFullName,
                 token,
                 role,
                 mosqueId,
