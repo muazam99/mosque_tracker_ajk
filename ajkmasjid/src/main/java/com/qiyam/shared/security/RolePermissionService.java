@@ -12,9 +12,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
- * Dynamically loads roles and their permissions from Supabase tables:
- * - roles table: name, hierarchy_level
- * - role_permissions table: role_name, permission
+ * Dynamically loads roles and their permissions from Supabase:
+ * - committee_roles table: role_name, hierarchy_level
+ * - role_permissions table: committee_role_id (FK), permission_code
  *
  * Caches data in memory and refreshes periodically.
  */
@@ -42,27 +42,40 @@ public class RolePermissionService {
     @Scheduled(fixedDelay = 300_000)
     public void refresh() {
         try {
-            // Load roles from roles table
-            var roles = supabaseClient.getAll("roles", Map.of(), Map.class);
-            if (roles != null) {
-                for (var r : roles) {
-                    var name = (String) r.get("name");
+            // Load roles from committee_roles table
+            var committeeRoles = supabaseClient.getAll("committee_roles", Map.of(), Map.class);
+            if (committeeRoles != null) {
+                for (var r : committeeRoles) {
+                    var roleName = (String) r.get("role_name");
                     var level = r.get("hierarchy_level") instanceof Number n ? n.intValue() : 999;
-                    if (name != null) {
-                        Role.from(name, level);
+                    if (roleName != null) {
+                        Role.from(roleName, level);
                     }
                 }
             }
 
-            // Load role_permissions from role_permissions table
+            // Load all role_permissions with their committee_role_id references
             var perms = supabaseClient.getAll("role_permissions", Map.of(), Map.class);
             permissionCache.clear();
             if (perms != null) {
+                // Build a lookup from committee_role_id -> role_name
+                Map<Object, String> roleIdToName = new HashMap<>();
+                if (committeeRoles != null) {
+                    for (var r : committeeRoles) {
+                        var id = r.get("id");
+                        var name = (String) r.get("role_name");
+                        if (id != null && name != null) {
+                            roleIdToName.put(id, name.toUpperCase());
+                        }
+                    }
+                }
+
                 for (var p : perms) {
-                    var roleName = ((String) p.get("role_name")).toUpperCase();
-                    var permStr = (String) p.get("permission");
-                    if (roleName != null && permStr != null) {
-                        permissionCache.computeIfAbsent(roleName, k -> ConcurrentHashMap.newKeySet()).add(permStr);
+                    var committeeRoleId = p.get("committee_role_id");
+                    var permCode = (String) p.get("permission_code");
+                    var roleName = roleIdToName.get(committeeRoleId);
+                    if (roleName != null && permCode != null) {
+                        permissionCache.computeIfAbsent(roleName, k -> ConcurrentHashMap.newKeySet()).add(permCode);
                     }
                 }
             }
@@ -103,13 +116,6 @@ public class RolePermissionService {
             if (permNames.contains(p.name())) return true;
         }
         return false;
-    }
-
-    /**
-     * Returns all roles currently loaded.
-     */
-    public List<Role> getAllRoles() {
-        return List.copyOf(roleCache.values());
     }
 
     /**

@@ -1,1 +1,4 @@
 ajkmasjid/src/main/resources/frontend-api-documentation.md
+*.sql
+ajkmasjid/src/main/resources/sql/seed_committee_roles.sql
+*.sql
