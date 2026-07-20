@@ -9,6 +9,6 @@ RUN apk add --no-cache curl
 WORKDIR /app
 COPY --from=builder /app/target/*.jar app.jar
 EXPOSE 8080
-HEALTHCHECK --interval=30s --timeout=5s --retries=3 --start-period=40s \
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 --start-period=120s \
   CMD curl -sf http://localhost:8080/api/v1/actuator/health || exit 1
 ENTRYPOINT ["java", "-jar", "app.jar"]
