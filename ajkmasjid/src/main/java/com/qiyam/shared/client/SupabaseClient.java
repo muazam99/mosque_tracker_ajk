@@ -9,6 +9,7 @@ import org.springframework.http.*;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 
 import java.net.URLEncoder;
@@ -51,6 +52,9 @@ public class SupabaseClient {
             return response.getBody() != null ? response.getBody() : List.of();
         } catch (HttpClientErrorException.NotFound e) {
             return List.of();
+        } catch (ResourceAccessException e) {
+            log.error("Supabase connection failed: {}", e.getMessage());
+            throw new SupabaseException(503, "Cannot reach Supabase at " + baseUrl() + " – " + e.getMessage());
         } catch (HttpClientErrorException | HttpServerErrorException e) {
             log.error("Supabase GET error [{}]: {}", e.getStatusCode(), e.getResponseBodyAsString());
             throw new SupabaseException(e.getStatusCode().value(), "Failed to fetch " + table);
@@ -73,6 +77,9 @@ public class SupabaseClient {
             var entity = new HttpEntity<>(body, headers());
             log.debug("POST {}", url);
             return restTemplate.postForObject(url, entity, clazz);
+        } catch (ResourceAccessException e) {
+            log.error("Supabase connection failed: {}", e.getMessage());
+            throw new SupabaseException(503, "Cannot reach Supabase at " + baseUrl() + " – " + e.getMessage());
         } catch (HttpClientErrorException | HttpServerErrorException e) {
             log.error("Supabase POST error [{}]: {}", e.getStatusCode(), e.getResponseBodyAsString());
             throw new SupabaseException(e.getStatusCode().value(), "Failed to create record");
@@ -86,6 +93,9 @@ public class SupabaseClient {
             log.debug("PATCH {}", url);
             var response = restTemplate.exchange(url, HttpMethod.PATCH, entity, clazz);
             return response.getBody();
+        } catch (ResourceAccessException e) {
+            log.error("Supabase connection failed: {}", e.getMessage());
+            throw new SupabaseException(503, "Cannot reach Supabase at " + baseUrl() + " – " + e.getMessage());
         } catch (HttpClientErrorException | HttpServerErrorException e) {
             log.error("Supabase PATCH error [{}]: {}", e.getStatusCode(), e.getResponseBodyAsString());
             throw new SupabaseException(e.getStatusCode().value(), "Failed to update record");
@@ -98,6 +108,9 @@ public class SupabaseClient {
             var entity = new HttpEntity<>(headers());
             log.debug("DELETE {}", url);
             restTemplate.exchange(url, HttpMethod.DELETE, entity, Void.class);
+        } catch (ResourceAccessException e) {
+            log.error("Supabase connection failed: {}", e.getMessage());
+            throw new SupabaseException(503, "Cannot reach Supabase at " + baseUrl() + " – " + e.getMessage());
         } catch (HttpClientErrorException | HttpServerErrorException e) {
             log.error("Supabase DELETE error [{}]: {}", e.getStatusCode(), e.getResponseBodyAsString());
             throw new SupabaseException(e.getStatusCode().value(), "Failed to delete record");
