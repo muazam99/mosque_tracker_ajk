@@ -9,11 +9,11 @@ services:
     ports:
       - "8080:8080"
     env_file:
-      - ./ajkmasjid/.env
+      - .env
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:8080/api/v1/actuator/health"]
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 40s
+      start_period: 120s
