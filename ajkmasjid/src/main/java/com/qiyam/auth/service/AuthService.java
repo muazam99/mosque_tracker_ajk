@@ -36,19 +36,51 @@ public class AuthService {
 
         // Step 2: Check if the user exists in the local users table
         var dbUserOpt = supabaseClient.getOne("users", "email", email, Map.class);
+
+        final Map<String, Object> dbUser;
         if (dbUserOpt.isEmpty()) {
-            log.warn("Login denied: email '{}' not registered in users table", email);
-            throw new IllegalArgumentException(
-                    "User not registered. Please register via Qiyam mobile apps first.");
+            // Auto-register new Google-authenticated user with PUBLIC_USER role
+            log.info("Email '{}' not found in users table – auto-registering as PUBLIC_USER", email);
+            var newUser = new HashMap<String, Object>();
+            newUser.put("email", email);
+            newUser.put("username", email);
+            newUser.put("fullname", fullName.isBlank() ? email : fullName);
+            newUser.put("role", "PUBLIC_USER");
+            newUser.put("status", "active");
+            if (picture != null && !picture.isBlank()) {
+                newUser.put("image_path", picture);
+            }
+            dbUser = supabaseClient.post("users", newUser, Map.class);
+            if (dbUser == null || dbUser.isEmpty()) {
+                log.error("Failed to auto-register user '{}'", email);
+                throw new IllegalArgumentException(
+                        "Failed to create user account. Please try again.");
+            }
+            log.info("Auto-registered user '{}' with id={}", email, dbUser.get("id"));
+        } else {
+            dbUser = dbUserOpt.get();
         }
 
-        var dbUser = dbUserOpt.get();
         var userId = dbUser.get("id").toString();
         var username = (String) dbUser.getOrDefault("username", email);
         var dbFullName = (String) dbUser.getOrDefault("fullname", fullName.isBlank() ? email : fullName);
         var roleStr = (String) dbUser.getOrDefault("role", "PUBLIC_USER");
 
         var role = Role.fromString(roleStr);
+
+        // If the stored role is invalid/broken (falls back to GUEST with level 999),
+        // fix it by updating to PUBLIC_USER in the DB. Non-fatal if DB update fails.
+        if (role.level() == 999 && !roleStr.equalsIgnoreCase("PUBLIC_USER")) {
+            log.warn("User '{}' has invalid role '{}' (level=999) – auto-fixing to PUBLIC_USER", email, roleStr);
+            try {
+                supabaseClient.patch("users", "id", userId, Map.of("role", "PUBLIC_USER"), Map.class);
+                log.info("Fixed role for user '{}' from '{}' to PUBLIC_USER", email, roleStr);
+            } catch (Exception e) {
+                log.error("Failed to auto-fix role for user '{}': {}", email, e.getMessage());
+            }
+            roleStr = "PUBLIC_USER";
+            role = Role.fromString(roleStr);
+        }
 
         var permissions = rolePermissionService.getPermissions(role)
                 .stream()
