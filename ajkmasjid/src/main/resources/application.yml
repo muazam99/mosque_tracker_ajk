@@ -43,11 +43,11 @@ app:
     swagger-enabled: false
     permitted-paths:
       - /auth/**
-      - /actuator/health/readiness
-      - /actuator/health/liveness
+      - /actuator/health
+      - /actuator/health/**
   cors:
     allowed-origins:
-      - https://ajkapi.qiyam.com.my
+      - https://ajk.qiyam.com.my
   supabase:
     url: ${SUPABASE_URL}
     anon-key: ${SUPABASE_ANON_KEY}
