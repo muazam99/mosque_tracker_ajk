@@ -1,4 +1,4 @@
-Login failed. Please register via Qiyam mobile apps first.package com.qiyam.shared.config;
+package com.qiyam.shared.config;
 
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.boot.context.properties.ConfigurationProperties;
