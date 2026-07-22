@@ -63,7 +63,8 @@ public class SupabaseClient {
 
     public <T> Optional<T> getOne(String table, String column, String value, Class<T> clazz) {
         try {
-            var params = Map.of(column, "eq." + encodeValue(value));
+            // No encodeValue here — buildUrl() already URL-encodes param values.
+            var params = Map.of(column, "eq." + value);
             var results = getAll(table, params, clazz);
             return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
         } catch (SupabaseException e) {
