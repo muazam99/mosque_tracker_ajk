@@ -45,12 +45,15 @@ public class SupabaseClient {
         try {
             var url = buildUrl(table, params);
             var entity = new HttpEntity<>(headers());
-            log.debug("GET {}", url);
+            log.info("GET {} -> HTTP {}", url, "sending...");
             var response = restTemplate.exchange(
                     url, HttpMethod.GET, entity,
                     new ParameterizedTypeReference<List<T>>() {});
+            log.info("GET {} -> HTTP {} body size={}", url, response.getStatusCode().value(),
+                    response.getBody() != null ? response.getBody().size() : 0);
             return response.getBody() != null ? response.getBody() : List.of();
         } catch (HttpClientErrorException.NotFound e) {
+            log.warn("GET {} -> HTTP 404 (NotFound) body={}", url, e.getResponseBodyAsString());
             return List.of();
         } catch (ResourceAccessException e) {
             log.error("Supabase connection failed: {}", e.getMessage());
