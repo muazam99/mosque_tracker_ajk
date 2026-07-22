@@ -36,6 +36,7 @@ public class SupabaseClient {
         headers.set("apikey", appProperties.supabase().serviceRoleKey());
         headers.set("Authorization", "Bearer " + appProperties.supabase().serviceRoleKey());
         headers.setAccept(List.of(MediaType.APPLICATION_JSON));
+        headers.setContentType(MediaType.APPLICATION_JSON);
         return headers;
     }
 
@@ -45,12 +46,12 @@ public class SupabaseClient {
         var url = buildUrl(table, params);
         try {
             var entity = new HttpEntity<>(headers());
-            log.info("GET {} -> HTTP {}", url, "sending...");
+            log.debug("GET {}", url);
             var response = restTemplate.exchange(
                     url, HttpMethod.GET, entity,
                     new ParameterizedTypeReference<List<T>>() {});
-            log.info("GET {} -> HTTP {} body size={}", url, response.getStatusCode().value(),
-                    response.getBody() != null ? response.getBody().size() : 0);
+            var bodySize = response.getBody() != null ? response.getBody().size() : 0;
+            log.info("GET {} -> HTTP {} returned {} rows", url, response.getStatusCode().value(), bodySize);
             return response.getBody() != null ? response.getBody() : List.of();
         } catch (HttpClientErrorException.NotFound e) {
             log.warn("GET {} -> HTTP 404 (NotFound) body={}", url, e.getResponseBodyAsString());
