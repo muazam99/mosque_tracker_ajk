@@ -67,10 +67,15 @@ public class SupabaseClient {
 
     public <T> Optional<T> getOne(String table, String column, String value, Class<T> clazz) {
         try {
-            // No encodeValue here — buildUrl() already URL-encodes param values.
-            var params = Map.of(column, "eq." + value);
-            log.info("getOne: table={}, column={}, value={}, params={}", table, column, value, params);
-            var results = getAll(table, params, clazz);
+            // Build URL directly to avoid encoding the "eq." operator prefix
+            var url = baseUrl() + "/" + encodeTable(table) + "?"
+                    + encodeColumn(column) + "=eq." + encodeValue(value);
+            log.info("getOne URL: {}", url);
+            var entity = new HttpEntity<>(headers());
+            var response = restTemplate.exchange(
+                    url, HttpMethod.GET, entity,
+                    new ParameterizedTypeReference<List<T>>() {});
+            var results = response.getBody() != null ? response.getBody() : List.of();
             log.info("getOne: returned {} results", results.size());
             return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
         } catch (SupabaseException e) {
