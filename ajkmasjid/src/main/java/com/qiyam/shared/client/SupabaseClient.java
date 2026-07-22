@@ -35,7 +35,7 @@ public class SupabaseClient {
         var headers = new HttpHeaders();
         headers.set("apikey", appProperties.supabase().serviceRoleKey());
         headers.set("Authorization", "Bearer " + appProperties.supabase().serviceRoleKey());
-        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setAccept(List.of(MediaType.APPLICATION_JSON));
         return headers;
     }
 
@@ -65,7 +65,9 @@ public class SupabaseClient {
         try {
             // No encodeValue here — buildUrl() already URL-encodes param values.
             var params = Map.of(column, "eq." + value);
+            log.info("getOne: table={}, column={}, value={}, params={}", table, column, value, params);
             var results = getAll(table, params, clazz);
+            log.info("getOne: returned {} results", results.size());
             return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
         } catch (SupabaseException e) {
             throw e;

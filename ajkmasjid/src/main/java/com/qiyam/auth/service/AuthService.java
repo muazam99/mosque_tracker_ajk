@@ -24,10 +24,12 @@ public class AuthService {
 
     public LoginResponse login(LoginRequest request) {
         // Step 1: Verify the Google ID token from frontend sign-in
+        log.info("Login attempt with accessToken length={}", request.accessToken().length());
         var googleUser = googleAuthClient.verifyIdToken(request.accessToken());
         var email = (String) googleUser.getOrDefault("email", "");
         var fullName = (String) googleUser.getOrDefault("name", "");
         var picture = (String) googleUser.getOrDefault("picture", "");
+        log.info("Google verified: email='{}', name='{}'", email, fullName);
 
         if (email.isBlank()) {
             log.warn("Login denied: no email returned from Google");
