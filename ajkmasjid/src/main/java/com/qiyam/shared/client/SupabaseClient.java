@@ -42,8 +42,8 @@ public class SupabaseClient {
     // ─── Generic CRUD ────────────────────────────────────────────────
 
     public <T> List<T> getAll(String table, Map<String, String> params, Class<T> clazz) {
+        var url = buildUrl(table, params);
         try {
-            var url = buildUrl(table, params);
             var entity = new HttpEntity<>(headers());
             log.info("GET {} -> HTTP {}", url, "sending...");
             var response = restTemplate.exchange(
