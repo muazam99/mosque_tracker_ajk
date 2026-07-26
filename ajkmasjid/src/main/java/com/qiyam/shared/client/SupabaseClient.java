@@ -54,7 +54,7 @@ public class SupabaseClient {
             log.info("GET {} -> HTTP {} returned {} rows", url, response.getStatusCode().value(), bodySize);
             return response.getBody() != null ? response.getBody() : List.of();
         } catch (HttpClientErrorException.NotFound e) {
-            log.warn("GET {} -> HTTP 404 (NotFound) body={}", url, e.getResponseBodyAsString());
+            log.warn("GET {} -> HTTP 404 (NotFound)", url);
             return List.of();
         } catch (ResourceAccessException e) {
             log.error("Supabase connection failed: {}", e.getMessage());
@@ -65,6 +65,7 @@ public class SupabaseClient {
         }
     }
 
+    @SuppressWarnings("unchecked")
     public <T> Optional<T> getOne(String table, String column, String value, Class<T> clazz) {
         try {
             // Build URL directly to avoid encoding the "eq." operator prefix
@@ -72,37 +73,28 @@ public class SupabaseClient {
                     + encodeColumn(column) + "=eq." + encodeValue(value);
             log.info("getOne URL: {}", url);
             var entity = new HttpEntity<>(headers());
-            var response = restTemplate.exchange(
-                    url, HttpMethod.GET, entity,
-                    new ParameterizedTypeReference<List<T>>() {});
-            var results = response.getBody() != null ? response.getBody() : List.of();
-            log.info("getOne: returned {} results", results.size());
 
-            // Fallback: if PostgREST filter returns empty, fetch all and filter in-memory
-            if (results.isEmpty()) {
-                log.info("getOne: PostgREST returned 0 rows, falling back to in-memory filter");
-                var allUrl = baseUrl() + "/" + encodeTable(table);
-                var allEntity = new HttpEntity<>(headers());
-                var allResponse = restTemplate.exchange(
-                        allUrl, HttpMethod.GET, allEntity,
-                        new ParameterizedTypeReference<List<T>>() {});
-                results = allResponse.getBody() != null ? allResponse.getBody() : List.of();
-                log.info("getOne fallback: fetched {} rows from table, filtering by {}={}",
-                        results.size(), column, value);
-                // Filter in-memory
-                var filtered = results.stream()
-                        .filter(row -> {
-                            if (row instanceof Map<?,?> m) {
-                                var fieldValue = m.get(column);
-                                return fieldValue != null && Objects.toString(fieldValue).equals(value);
-                            }
-                            return false;
-                        })
-                        .toList();
-                return filtered.isEmpty() ? Optional.empty() : Optional.of(filtered.get(0));
+            // Fetch all rows (bypasses PostgREST filter issues)
+            var allUrl = baseUrl() + "/" + encodeTable(table);
+            var allEntity = new HttpEntity<>(headers());
+            var allResponse = restTemplate.exchange(
+                    allUrl, HttpMethod.GET, allEntity,
+                    new ParameterizedTypeReference<List<Map<String, Object>>>() {});
+            List<Map<String, Object>> allRows = allResponse.getBody();
+            if (allRows == null) allRows = new ArrayList<>();
+            log.info("getOne: fetched {} rows from table, searching for {}={}",
+                    allRows.size(), column, value);
+
+            // Filter in-memory
+            for (Map<String, Object> row : allRows) {
+                var fieldValue = row.get(column);
+                if (fieldValue != null && Objects.toString(fieldValue).equals(value)) {
+                    log.info("getOne: found matching row for {}={}", column, value);
+                    return Optional.of((T) row);
+                }
             }
-
-            return Optional.of(results.get(0));
+            log.warn("getOne: no row found for {}={} in {} rows", column, value, allRows.size());
+            return Optional.empty();
         } catch (SupabaseException e) {
             throw e;
         }
