@@ -89,7 +89,6 @@ public class CommitteeController {
     }
 
     @DeleteMapping("/{id}/members/{memberId}")
-    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Remove committee member", description = "Removes a member from a specific committee")
     public ResponseEntity<Void> removeMember(@Parameter(description = "Committee ID") @PathVariable Long id, @Parameter(description = "Member ID") @PathVariable Long memberId) {
         committeeService.removeCommitteeMember(id, memberId);
