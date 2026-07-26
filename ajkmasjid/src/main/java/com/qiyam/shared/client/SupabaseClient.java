@@ -36,7 +36,7 @@ public class SupabaseClient {
         headers.set("apikey", appProperties.supabase().serviceRoleKey());
         headers.set("Authorization", "Bearer " + appProperties.supabase().serviceRoleKey());
         headers.setAccept(List.of(MediaType.APPLICATION_JSON));
-        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("Prefer", "return=representation");
         return headers;
     }
 
@@ -77,7 +77,32 @@ public class SupabaseClient {
                     new ParameterizedTypeReference<List<T>>() {});
             var results = response.getBody() != null ? response.getBody() : List.of();
             log.info("getOne: returned {} results", results.size());
-            return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
+
+            // Fallback: if PostgREST filter returns empty, fetch all and filter in-memory
+            if (results.isEmpty()) {
+                log.info("getOne: PostgREST returned 0 rows, falling back to in-memory filter");
+                var allUrl = baseUrl() + "/" + encodeTable(table);
+                var allEntity = new HttpEntity<>(headers());
+                var allResponse = restTemplate.exchange(
+                        allUrl, HttpMethod.GET, allEntity,
+                        new ParameterizedTypeReference<List<T>>() {});
+                results = allResponse.getBody() != null ? allResponse.getBody() : List.of();
+                log.info("getOne fallback: fetched {} rows from table, filtering by {}={}",
+                        results.size(), column, value);
+                // Filter in-memory
+                var filtered = results.stream()
+                        .filter(row -> {
+                            if (row instanceof Map<?,?> m) {
+                                var fieldValue = m.get(column);
+                                return fieldValue != null && Objects.toString(fieldValue).equals(value);
+                            }
+                            return false;
+                        })
+                        .toList();
+                return filtered.isEmpty() ? Optional.empty() : Optional.of(filtered.get(0));
+            }
+
+            return Optional.of(results.get(0));
         } catch (SupabaseException e) {
             throw e;
         }
