@@ -111,7 +111,7 @@ public class SupabaseClient {
             throw new SupabaseException(503, "Cannot reach Supabase at " + baseUrl() + " – " + e.getMessage());
         } catch (HttpClientErrorException | HttpServerErrorException e) {
             log.error("Supabase POST error [{}]: {}", e.getStatusCode(), e.getResponseBodyAsString());
-            throw new SupabaseException(e.getStatusCode().value(), "Failed to create record");
+            throw new SupabaseException(e.getStatusCode().value(), "Failed to create record: " + e.getResponseBodyAsString());
         }
     }
 
