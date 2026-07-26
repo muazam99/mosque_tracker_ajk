@@ -64,16 +64,16 @@ public class CommitteeService {
 
     public Map<String, Object> addCommitteeMember(String committeeId, MemberRequest request) {
         accessControlService.requirePermission(null, Permission.MEMBERS_WRITE);
-        request.setCommitteeRoleId(Long.valueOf(committeeId));
         var body = memberToMap(request);
+        body.put("committee_role_id", committeeId);
         var result = supabaseClient.post("mosque_committees", body, Map.class);
         return result != null ? result : Map.of();
     }
 
     public Map<String, Object> updateCommitteeMember(String committeeId, String memberId, MemberRequest request) {
         accessControlService.requirePermission(null, Permission.MEMBERS_WRITE);
-        request.setCommitteeRoleId(Long.valueOf(committeeId));
         var body = memberToMap(request);
+        body.put("committee_role_id", committeeId);
         var result = supabaseClient.patch("mosque_committees", "id", String.valueOf(memberId), body, Map.class);
         return result != null ? result : Map.of();
     }
