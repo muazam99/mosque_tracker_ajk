@@ -28,7 +28,7 @@ public class CommitteeService {
         return (List<Map<String, Object>>) (List<?>) supabaseClient.getAll("committee_roles", params, Map.class);
     }
 
-    public Optional<Map<String, Object>> getCommitteeById(Long id) {
+    public Optional<Map<String, Object>> getCommitteeById(String id) {
         accessControlService.requirePermission(null, Permission.MEMBERS_READ);
         return (Optional<Map<String, Object>>) (Optional<?>) supabaseClient.getOne("committee_roles", "id", String.valueOf(id), Map.class);
     }
@@ -40,21 +40,21 @@ public class CommitteeService {
         return result != null ? result : Map.of();
     }
 
-    public Map<String, Object> updateCommittee(Long id, CommitteeRequest request) {
+    public Map<String, Object> updateCommittee(String id, CommitteeRequest request) {
         accessControlService.requirePermission(null, Permission.MEMBERS_WRITE);
         var body = committeeToMap(request);
         var result = supabaseClient.patch("committee_roles", "id", String.valueOf(id), body, Map.class);
         return result != null ? result : Map.of();
     }
 
-    public void deleteCommittee(Long id) {
+    public void deleteCommittee(String id) {
         accessControlService.requirePermission(null, Permission.MEMBERS_DELETE);
         supabaseClient.delete("committee_roles", "id", String.valueOf(id));
     }
 
     // ─── Members (mosque_committees) ─────────────────────────
 
-    public List<Map<String, Object>> getCommitteeMembers(Long committeeId) {
+    public List<Map<String, Object>> getCommitteeMembers(String committeeId) {
         accessControlService.requirePermission(null, Permission.MEMBERS_READ);
         var params = new HashMap<String, String>();
         params.put("committee_role_id", "eq." + committeeId);
@@ -62,7 +62,7 @@ public class CommitteeService {
         return (List<Map<String, Object>>) (List<?>) supabaseClient.getAll("mosque_committees", params, Map.class);
     }
 
-    public Map<String, Object> addCommitteeMember(Long committeeId, MemberRequest request) {
+    public Map<String, Object> addCommitteeMember(String committeeId, MemberRequest request) {
         accessControlService.requirePermission(null, Permission.MEMBERS_WRITE);
         request.setCommitteeRoleId(committeeId);
         var body = memberToMap(request);
@@ -70,7 +70,7 @@ public class CommitteeService {
         return result != null ? result : Map.of();
     }
 
-    public Map<String, Object> updateCommitteeMember(Long committeeId, Long memberId, MemberRequest request) {
+    public Map<String, Object> updateCommitteeMember(String committeeId, String memberId, MemberRequest request) {
         accessControlService.requirePermission(null, Permission.MEMBERS_WRITE);
         request.setCommitteeRoleId(committeeId);
         var body = memberToMap(request);
@@ -78,7 +78,7 @@ public class CommitteeService {
         return result != null ? result : Map.of();
     }
 
-    public void removeCommitteeMember(Long committeeId, Long memberId) {
+    public void removeCommitteeMember(String committeeId, String memberId) {
         accessControlService.requirePermission(null, Permission.MEMBERS_DELETE);
         supabaseClient.delete("mosque_committees", "id", String.valueOf(memberId));
     }

@@ -34,7 +34,7 @@ public class CommitteeController {
 
     @GetMapping("/{id}")
     @Operation(summary = "Get committee by ID", description = "Returns a single committee by its unique identifier")
-    public ResponseEntity<Map<String, Object>> getById(@Parameter(description = "Committee ID") @PathVariable Long id) {
+    public ResponseEntity<Map<String, Object>> getById(@Parameter(description = "Committee ID") @PathVariable String id) {
         return committeeService.getCommitteeById(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
@@ -49,7 +49,7 @@ public class CommitteeController {
 
     @PutMapping("/{id}")
     @Operation(summary = "Update a committee", description = "Updates an existing committee by ID")
-    public ResponseEntity<Map<String, Object>> update(@Parameter(description = "Committee ID") @PathVariable Long id, @RequestBody CommitteeRequest request) {
+    public ResponseEntity<Map<String, Object>> update(@Parameter(description = "Committee ID") @PathVariable String id, @RequestBody CommitteeRequest request) {
         var updated = committeeService.updateCommittee(id, request);
         return ResponseEntity.ok(updated);
     }
@@ -57,7 +57,7 @@ public class CommitteeController {
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Delete a committee", description = "Deletes a committee by ID")
-    public ResponseEntity<Void> delete(@Parameter(description = "Committee ID") @PathVariable Long id) {
+    public ResponseEntity<Void> delete(@Parameter(description = "Committee ID") @PathVariable String id) {
         committeeService.deleteCommittee(id);
         return ResponseEntity.noContent().build();
     }
@@ -66,14 +66,14 @@ public class CommitteeController {
 
     @GetMapping("/{id}/members")
     @Operation(summary = "Get committee members", description = "Returns all members of a specific committee")
-    public ResponseEntity<List<Map<String, Object>>> getMembers(@Parameter(description = "Committee ID") @PathVariable Long id) {
+    public ResponseEntity<List<Map<String, Object>>> getMembers(@Parameter(description = "Committee ID") @PathVariable String id) {
         return ResponseEntity.ok(committeeService.getCommitteeMembers(id));
     }
 
     @PostMapping("/{id}/members")
     @Operation(summary = "Add member to committee", description = "Adds a new member to a specific committee")
     public ResponseEntity<Map<String, Object>> addMember(
-            @Parameter(description = "Committee ID") @PathVariable Long id, @RequestBody MemberRequest request) {
+            @Parameter(description = "Committee ID") @PathVariable String id, @RequestBody MemberRequest request) {
         var created = committeeService.addCommitteeMember(id, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
@@ -81,8 +81,8 @@ public class CommitteeController {
     @PatchMapping("/{id}/members/{memberId}")
     @Operation(summary = "Update committee member", description = "Updates the details of a committee member")
     public ResponseEntity<Map<String, Object>> updateMember(
-            @Parameter(description = "Committee ID") @PathVariable Long id,
-            @Parameter(description = "Member ID") @PathVariable Long memberId,
+            @Parameter(description = "Committee ID") @PathVariable String id,
+            @Parameter(description = "Member ID") @PathVariable String memberId,
             @RequestBody MemberRequest request) {
         var updated = committeeService.updateCommitteeMember(id, memberId, request);
         return ResponseEntity.ok(updated);
@@ -90,7 +90,7 @@ public class CommitteeController {
 
     @DeleteMapping("/{id}/members/{memberId}")
     @Operation(summary = "Remove committee member", description = "Removes a member from a specific committee")
-    public ResponseEntity<Void> removeMember(@Parameter(description = "Committee ID") @PathVariable Long id, @Parameter(description = "Member ID") @PathVariable Long memberId) {
+    public ResponseEntity<Void> removeMember(@Parameter(description = "Committee ID") @PathVariable String id, @Parameter(description = "Member ID") @PathVariable String memberId) {
         committeeService.removeCommitteeMember(id, memberId);
         return ResponseEntity.noContent().build();
     }

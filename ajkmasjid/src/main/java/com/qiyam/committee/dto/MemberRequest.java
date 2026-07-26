@@ -6,7 +6,7 @@ import java.time.LocalDate;
 @Data
 public class MemberRequest {
     private String userId;
-    private Long committeeRoleId;
+    private String committeeRoleId;
     private LocalDate appointmentStart;
     private LocalDate appointmentEnd;
     private String status;
