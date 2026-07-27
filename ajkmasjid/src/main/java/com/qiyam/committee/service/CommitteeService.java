@@ -64,8 +64,12 @@ public class CommitteeService {
 
     public Map<String, Object> addCommitteeMember(String committeeId, MemberRequest request) {
         accessControlService.requirePermission(null, Permission.MEMBERS_WRITE);
+        // Look up the committee to get its mosque_id
+        var committee = getCommitteeById(committeeId)
+                .orElseThrow(() -> new RuntimeException("Committee not found: " + committeeId));
         var body = memberToMap(request);
         body.put("committee_role_id", committeeId);
+        body.put("mosque_id", committee.get("mosque_id"));
         var result = supabaseClient.post("mosque_committees", body, Map.class);
         return result != null ? result : Map.of();
     }
