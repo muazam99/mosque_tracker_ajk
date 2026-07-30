@@ -36,6 +36,11 @@ public class SupabaseClient {
         headers.set("apikey", appProperties.supabase().serviceRoleKey());
         headers.set("Authorization", "Bearer " + appProperties.supabase().serviceRoleKey());
         headers.setAccept(List.of(MediaType.APPLICATION_JSON));
+        return headers;
+    }
+
+    private HttpHeaders headersWithRepresentation() {
+        var headers = headers();
         headers.set("Prefer", "return=representation");
         return headers;
     }
@@ -97,15 +102,26 @@ public class SupabaseClient {
             return Optional.empty();
         } catch (SupabaseException e) {
             throw e;
+        } catch (ResourceAccessException e) {
+            log.error("Supabase connection failed in getOne: {}", e.getMessage());
+            throw new SupabaseException(503, "Cannot reach Supabase at " + baseUrl() + " – " + e.getMessage());
+        } catch (HttpClientErrorException | HttpServerErrorException e) {
+            log.error("Supabase getOne error [{}]: {}", e.getStatusCode(), e.getResponseBodyAsString());
+            throw new SupabaseException(e.getStatusCode().value(), "Failed to fetch from " + table);
         }
     }
 
     public <T> T post(String table, Object body, Class<T> clazz) {
         try {
             var url = baseUrl() + "/" + encodeTable(table);
-            var entity = new HttpEntity<>(body, headers());
+            // Use minimal return to avoid deserialization errors with array responses
+            var h = headers();
+            h.set("Prefer", "return=minimal");
+            var entity = new HttpEntity<>(body, h);
             log.debug("POST {}", url);
-            return restTemplate.postForObject(url, entity, clazz);
+            restTemplate.postForObject(url, entity, clazz);
+            // Record created successfully — return empty map since we used return=minimal
+            return clazz == Map.class ? (T) Map.of() : null;
         } catch (ResourceAccessException e) {
             log.error("Supabase connection failed: {}", e.getMessage());
             throw new SupabaseException(503, "Cannot reach Supabase at " + baseUrl() + " – " + e.getMessage());
