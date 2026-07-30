@@ -1,8 +1,7 @@
 package com.qiyam.shared.config;
 
-import com.qiyam.shared.security.JwtAuthenticationFilter;
+import com.qiyam.shared.security.SessionCookieFilter;
 import lombok.RequiredArgsConstructor;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -28,18 +27,17 @@ import java.util.List;
 @EnableMethodSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
-    private final JwtAuthenticationFilter jwtFilter;
+    private final SessionCookieFilter sessionCookieFilter;
     private final AppProperties appProperties;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         var paths = appProperties.security().permittedPaths();
         var swaggerEnabled = appProperties.security().swaggerEnabled();
-        http.csrf(AbstractHttpConfigurer::disable)
+        http.csrf(csrf -> csrf.ignoringRequestMatchers("/auth/**", "/api/v1/**"))
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> {
-                    // Swagger UI + API docs — only accessible when explicitly enabled
                     if (swaggerEnabled) {
                         auth.requestMatchers(
                                 "/swagger-ui.html", "/swagger-ui/**",
@@ -48,12 +46,11 @@ public class SecurityConfig {
                                 "/webjars/**", "/favicon.ico"
                         ).permitAll();
                     }
-                    // App-specific permitted paths
                     paths.forEach(p -> auth.requestMatchers(p).permitAll());
                     auth.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                             .anyRequest().authenticated();
                 })
-                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(sessionCookieFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 

@@ -5,9 +5,10 @@ import com.qiyam.auth.dto.LoginResponse;
 import com.qiyam.auth.dto.MosqueMembership;
 import com.qiyam.shared.client.SupabaseClient;
 import com.qiyam.shared.security.GoogleAuthClient;
-import com.qiyam.shared.security.JwtTokenProvider;
 import com.qiyam.shared.security.Role;
 import com.qiyam.shared.security.RolePermissionService;
+import com.qiyam.shared.security.SessionStore;
+import com.qiyam.shared.security.UserPrincipal;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -20,8 +21,68 @@ import java.util.*;
 public class AuthService {
     private final SupabaseClient supabaseClient;
     private final GoogleAuthClient googleAuthClient;
-    private final JwtTokenProvider jwtTokenProvider;
+    private final SessionStore sessionStore;
     private final RolePermissionService rolePermissionService;
+
+    /**
+     * Fetch per-mosque memberships for the currently authenticated user.
+     * Called by the frontend on page reload to rebuild in-memory state
+     * without persisting sensitive permission data in localStorage.
+     */
+    public List<MosqueMembership> getMemberships(UserPrincipal principal) {
+        var userId = principal.userId().toString();
+
+        // SUPER_ADMIN — return empty (frontend handles unrestricted access)
+        if (principal.isSuperAdmin()) {
+            return List.of();
+        }
+
+        var dbMemberships = supabaseClient.getAll("mosque_committees", Map.of("user_id", "eq." + userId), Map.class);
+        if (dbMemberships == null || dbMemberships.isEmpty()) {
+            return List.of();
+        }
+
+        var membershipList = new ArrayList<MosqueMembership>();
+        for (var m : dbMemberships) {
+            var committeeRoleId = m.get("committee_role_id");
+            var mosqueIdObj = m.get("mosque_id");
+            if (committeeRoleId == null || !(mosqueIdObj instanceof Number mosqueNum)) continue;
+
+            int mosqueId = mosqueNum.intValue();
+            try {
+                Map<String, String> roleParams = new HashMap<>();
+                roleParams.put("id", "eq." + committeeRoleId.toString());
+                var committeeRoles = supabaseClient.getAll("committee_roles", roleParams, Map.class);
+                if (committeeRoles != null && !committeeRoles.isEmpty()) {
+                    var roleName = (String) committeeRoles.get(0).get("role_name");
+                    if (roleName != null) {
+                        var committeeRole = Role.fromString(roleName);
+                        var rolePermissions = rolePermissionService.getPermissions(committeeRole)
+                                .stream()
+                                .map(Enum::name)
+                                .toList();
+                        membershipList.add(new MosqueMembership(mosqueId, roleName, rolePermissions));
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("Failed to load permissions for committee_role_id {} at mosque {}: {}",
+                        committeeRoleId, mosqueId, e.getMessage());
+            }
+        }
+
+        // Fallback: user has mosqueIds in JWT but no committee role (shouldn't happen normally)
+        if (membershipList.isEmpty() && principal.mosqueIds() != null) {
+            var basePermissions = rolePermissionService.getPermissions(principal.role())
+                    .stream()
+                    .map(Enum::name)
+                    .toList();
+            for (var mid : principal.mosqueIds()) {
+                membershipList.add(new MosqueMembership(mid, principal.role().name(), basePermissions));
+            }
+        }
+
+        return membershipList;
+    }
 
     public LoginResponse login(LoginRequest request) {
         // Step 1: Verify the Google ID token from frontend sign-in
@@ -142,22 +203,32 @@ public class AuthService {
         var permissions = List.copyOf(allPermissionsUnion);
 
         var isSuperAdmin = role.level() == 1;
-        var token = jwtTokenProvider.generateToken(
-                UUID.fromString(userId), username, role.name(), mosqueIds);
 
-        log.info("User '{}' authenticated via Google login, role={}, level={}, isSuperAdmin={}, mosqueIds={}",
-                email, role.name(), role.level(), isSuperAdmin, mosqueIds);
+        // Build UserPrincipal and create session
+        var userPrincipal = new UserPrincipal(
+                UUID.fromString(userId),
+                username,
+                email,
+                dbFullName,
+                role,
+                mosqueIds
+        );
+        var sessionId = sessionStore.create(userPrincipal);
+
+        log.info("User '{}' authenticated via Google login, role={}, level={}, isSuperAdmin={}, mosqueIds={}, session={}",
+                email, role.name(), role.level(), isSuperAdmin, mosqueIds, sessionId);
 
         return new LoginResponse(
                 UUID.fromString(userId),
                 username,
                 dbFullName,
-                token,
+                null,  // token no longer used (session via cookie)
                 role,
                 isSuperAdmin,
                 mosqueIds,
                 permissions,
-                membershipList
+                membershipList,
+                sessionId
         );
     }
 }

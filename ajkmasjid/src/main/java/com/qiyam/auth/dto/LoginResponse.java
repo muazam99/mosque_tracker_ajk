@@ -13,6 +13,13 @@ import java.util.UUID;
  *                    switches active mosque, the frontend derives current
  *                    permissions from this list instead of the union.
  */
+/**
+ * @param token     Deprecated — always null since session cookie migration.
+ *                  Kept for backward compatibility with old frontends.
+ * @param sessionId The opaque session UUID set as an httpOnly cookie.
+ *                  Frontend does NOT read this; it's only for the response
+ *                  so the controller can set the Set‑Cookie header.
+ */
 public record LoginResponse(
         UUID userId,
         String username,
@@ -22,4 +29,5 @@ public record LoginResponse(
         boolean isSuperAdmin,
         Set<Integer> mosqueIds,
         List<String> permissions,
-        List<MosqueMembership> memberships) {}
+        List<MosqueMembership> memberships,
+        String sessionId) {}
