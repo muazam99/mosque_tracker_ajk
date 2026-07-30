@@ -2,6 +2,7 @@ package com.qiyam.auth.service;
 
 import com.qiyam.auth.dto.LoginRequest;
 import com.qiyam.auth.dto.LoginResponse;
+import com.qiyam.auth.dto.MosqueMembership;
 import com.qiyam.shared.client.SupabaseClient;
 import com.qiyam.shared.security.GoogleAuthClient;
 import com.qiyam.shared.security.JwtTokenProvider;
@@ -68,13 +69,13 @@ public class AuthService {
         }
 
         // Step 3: Load committee memberships for this user from mosque_committees
-        var memberships = supabaseClient.getAll("mosque_committees", Map.of("user_id", "eq." + userId), Map.class);
+        var dbMemberships = supabaseClient.getAll("mosque_committees", Map.of("user_id", "eq." + userId), Map.class);
 
         // Build set of mosque IDs the user belongs to
         Set<Integer> mosqueIds = null;
-        if (memberships != null && !memberships.isEmpty()) {
+        if (dbMemberships != null && !dbMemberships.isEmpty()) {
             mosqueIds = new HashSet<>();
-            for (var m : memberships) {
+            for (var m : dbMemberships) {
                 var mid = m.get("mosque_id");
                 if (mid instanceof Number n) {
                     mosqueIds.add(n.intValue());
@@ -87,41 +88,58 @@ public class AuthService {
             mosqueIds = null;
         }
 
-        // Compute union of all permissions from all committee roles the user holds
-        var permissions = rolePermissionService.getPermissions(role)
+        // Base permissions from the user's system role (users.role)
+        var basePermissions = rolePermissionService.getPermissions(role)
                 .stream()
                 .map(Enum::name)
-                .toList();
+                .collect(java.util.stream.Collectors.toSet());
 
-        // If user has committee memberships, also load permissions from those roles
-        if (memberships != null && !memberships.isEmpty()) {
-            var allPermissionNames = new HashSet<>(permissions);
-            for (var m : memberships) {
+        // ─── Build per-mosque membership list ───
+        var membershipList = new ArrayList<MosqueMembership>();
+        var allPermissionsUnion = new HashSet<>(basePermissions);
+
+        if (dbMemberships != null && !dbMemberships.isEmpty()) {
+            for (var m : dbMemberships) {
                 var committeeRoleId = m.get("committee_role_id");
-                if (committeeRoleId != null) {
-                    try {
-                        // Look up the committee_role_name from committee_role_id
-                        Map<String, String> roleParams = new HashMap<>();
-                        roleParams.put("id", "eq." + committeeRoleId.toString());
-                        var committeeRoles = supabaseClient.getAll("committee_roles", roleParams, Map.class);
-                        if (committeeRoles != null && !committeeRoles.isEmpty()) {
-                            var roleName = (String) committeeRoles.get(0).get("role_name");
-                            if (roleName != null) {
-                                var committeeRole = Role.fromString(roleName);
-                                rolePermissionService.getPermissions(committeeRole)
-                                        .stream()
-                                        .map(Enum::name)
-                                        .forEach(allPermissionNames::add);
-                            }
+                var mosqueIdObj = m.get("mosque_id");
+                if (committeeRoleId == null || !(mosqueIdObj instanceof Number mosqueNum)) continue;
+
+                int mosqueId = mosqueNum.intValue();
+                try {
+                    Map<String, String> roleParams = new HashMap<>();
+                    roleParams.put("id", "eq." + committeeRoleId.toString());
+                    var committeeRoles = supabaseClient.getAll("committee_roles", roleParams, Map.class);
+                    if (committeeRoles != null && !committeeRoles.isEmpty()) {
+                        var roleName = (String) committeeRoles.get(0).get("role_name");
+                        if (roleName != null) {
+                            var committeeRole = Role.fromString(roleName);
+                            var rolePermissions = rolePermissionService.getPermissions(committeeRole)
+                                    .stream()
+                                    .map(Enum::name)
+                                    .toList();
+
+                            membershipList.add(new MosqueMembership(mosqueId, roleName, rolePermissions));
+
+                            // Also add to the global union (for SUPER_ADMIN / fallback)
+                            allPermissionsUnion.addAll(rolePermissions);
                         }
-                    } catch (Exception e) {
-                        log.warn("Failed to load permissions for committee_role_id {}: {}",
-                                committeeRoleId, e.getMessage());
                     }
+                } catch (Exception e) {
+                    log.warn("Failed to load permissions for committee_role_id {} at mosque {}: {}",
+                            committeeRoleId, mosqueId, e.getMessage());
                 }
             }
-            permissions = List.copyOf(allPermissionNames);
         }
+
+        // If user has no memberships but has mosques, create placeholder entries
+        // so the frontend can still show the mosque selector
+        if (membershipList.isEmpty() && mosqueIds != null) {
+            for (var mid : mosqueIds) {
+                membershipList.add(new MosqueMembership(mid, role.name(), List.copyOf(basePermissions)));
+            }
+        }
+
+        var permissions = List.copyOf(allPermissionsUnion);
 
         var isSuperAdmin = role.level() == 1;
         var token = jwtTokenProvider.generateToken(
@@ -138,7 +156,8 @@ public class AuthService {
                 role,
                 isSuperAdmin,
                 mosqueIds,
-                permissions
+                permissions,
+                membershipList
         );
     }
 }
