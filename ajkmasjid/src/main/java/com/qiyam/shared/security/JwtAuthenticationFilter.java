@@ -14,7 +14,8 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.UUID;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Component
@@ -36,7 +37,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             var roleStr = claims.get("role", String.class);
             var email = claims.get("email", String.class);
             var fullName = claims.get("fullName", String.class);
-            var mosqueIdObj = claims.get("mosqueId", Integer.class);
+            // Parse multi-mosque support: prefer "mosqueIds" array, fall back to single "mosqueId"
+            Set<Integer> mosqueIds = null;
+            var mosqueIdsObj = claims.get("mosqueIds");
+            if (mosqueIdsObj instanceof List<?> list) {
+                mosqueIds = list.stream()
+                        .filter(o -> o instanceof Number)
+                        .map(o -> ((Number) o).intValue())
+                        .collect(Collectors.toSet());
+            } else {
+                // Fallback: single mosqueId claim for backward compatibility
+                var singleMosqueId = claims.get("mosqueId", Integer.class);
+                if (singleMosqueId != null) {
+                    mosqueIds = Set.of(singleMosqueId);
+                }
+            }
 
             var role = Role.fromString(roleStr);
             var userPrincipal = new UserPrincipal(
@@ -45,7 +60,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     email != null ? email : username,
                     fullName != null ? fullName : username,
                     role,
-                    mosqueIdObj
+                    mosqueIds
             );
 
             var auth = new UsernamePasswordAuthenticationToken(

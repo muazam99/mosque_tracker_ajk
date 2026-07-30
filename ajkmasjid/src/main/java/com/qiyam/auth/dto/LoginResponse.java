@@ -3,6 +3,7 @@ package com.qiyam.auth.dto;
 import com.qiyam.shared.security.Role;
 
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 public record LoginResponse(
@@ -11,5 +12,6 @@ public record LoginResponse(
         String fullName,
         String token,
         Role role,
-        Integer mosqueId,
+        boolean isSuperAdmin,
+        Set<Integer> mosqueIds,
         List<String> permissions) {}

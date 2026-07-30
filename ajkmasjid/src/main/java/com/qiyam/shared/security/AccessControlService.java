@@ -46,8 +46,8 @@ public class AccessControlService {
         var user = UserPrincipal.requireFrom(resolveAuth(auth));
         requirePermission(auth, permission);
         if (!user.hasMosqueAccess(mosqueId)) {
-            log.warn("Mosque access denied: user {} mosque {} != target {}",
-                    user.userId(), user.mosqueId(), mosqueId);
+            log.warn("Mosque access denied: user {} mosques {} does not include {}",
+                    user.userId(), user.mosqueIds(), mosqueId);
             throw new AccessDeniedException("Access denied to this mosque's data");
         }
     }
@@ -76,10 +76,28 @@ public class AccessControlService {
     }
 
     /**
-     * Returns the user's mosque ID from authentication.
+     * Returns the user's primary mosque ID from authentication.
+     * For SUPER_ADMIN, returns null (no restriction).
+     * For regular users, returns the first mosque ID or null if none.
+     * @deprecated Use {@link #getMosqueIds(Authentication)} for multi-mosque support.
      */
+    @Deprecated
     public Integer getMosqueId(Authentication auth) {
         var user = UserPrincipal.from(resolveAuth(auth));
-        return user != null ? user.mosqueId() : null;
+        if (user == null) return null;
+        if (user.isSuperAdmin()) return null;
+        var ids = user.mosqueIds();
+        return ids != null && !ids.isEmpty() ? ids.iterator().next() : null;
+    }
+
+    /**
+     * Returns all mosque IDs the user has access to.
+     * SUPER_ADMIN returns null (unlimited).
+     */
+    public Set<Integer> getMosqueIds(Authentication auth) {
+        var user = UserPrincipal.from(resolveAuth(auth));
+        if (user == null) return java.util.Collections.emptySet();
+        if (user.isSuperAdmin()) return null; // null = all access
+        return user.mosqueIds() != null ? user.mosqueIds() : java.util.Collections.emptySet();
     }
 }
