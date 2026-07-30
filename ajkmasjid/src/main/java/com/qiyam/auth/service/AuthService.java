@@ -24,6 +24,24 @@ public class AuthService {
     private final SessionStore sessionStore;
     private final RolePermissionService rolePermissionService;
 
+    /** Lightweight cache so we don't hit Supabase for the same mosque name repeatedly. */
+    private final Map<Integer, String> mosqueNameCache = new HashMap<>();
+
+    private String resolveMosqueName(int mosqueId) {
+        return mosqueNameCache.computeIfAbsent(mosqueId, id -> {
+            try {
+                var mosqueOpt = supabaseClient.getOne("mosques", "id", String.valueOf(id), Map.class);
+                if (mosqueOpt.isPresent()) {
+                    var name = (String) mosqueOpt.get().get("name");
+                    if (name != null && !name.isBlank()) return name;
+                }
+            } catch (Exception e) {
+                log.warn("Failed to resolve mosque name for id={}: {}", id, e.getMessage());
+            }
+            return "Mosque #" + id;
+        });
+    }
+
     /**
      * Fetch per-mosque memberships for the currently authenticated user.
      * Called by the frontend on page reload to rebuild in-memory state
@@ -61,7 +79,8 @@ public class AuthService {
                                 .stream()
                                 .map(Enum::name)
                                 .toList();
-                        membershipList.add(new MosqueMembership(mosqueId, roleName, rolePermissions));
+                        var mName = resolveMosqueName(mosqueId);
+                        membershipList.add(new MosqueMembership(mosqueId, mName, roleName, rolePermissions));
                     }
                 }
             } catch (Exception e) {
@@ -77,7 +96,8 @@ public class AuthService {
                     .map(Enum::name)
                     .toList();
             for (var mid : principal.mosqueIds()) {
-                membershipList.add(new MosqueMembership(mid, principal.role().name(), basePermissions));
+                var mName = resolveMosqueName(mid);
+                membershipList.add(new MosqueMembership(mid, mName, principal.role().name(), basePermissions));
             }
         }
 
@@ -179,7 +199,8 @@ public class AuthService {
                                     .map(Enum::name)
                                     .toList();
 
-                            membershipList.add(new MosqueMembership(mosqueId, roleName, rolePermissions));
+                            var mName = resolveMosqueName(mosqueId);
+                            membershipList.add(new MosqueMembership(mosqueId, mName, roleName, rolePermissions));
 
                             // Also add to the global union (for SUPER_ADMIN / fallback)
                             allPermissionsUnion.addAll(rolePermissions);
@@ -196,7 +217,8 @@ public class AuthService {
         // so the frontend can still show the mosque selector
         if (membershipList.isEmpty() && mosqueIds != null) {
             for (var mid : mosqueIds) {
-                membershipList.add(new MosqueMembership(mid, role.name(), List.copyOf(basePermissions)));
+                var mName = resolveMosqueName(mid);
+                membershipList.add(new MosqueMembership(mid, mName, role.name(), List.copyOf(basePermissions)));
             }
         }
 

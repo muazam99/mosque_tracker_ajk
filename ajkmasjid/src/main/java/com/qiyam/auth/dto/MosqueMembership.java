@@ -8,5 +8,6 @@ import java.util.List;
  */
 public record MosqueMembership(
         int mosqueId,
+        String mosqueName,
         String roleName,
         List<String> permissions) {}
