@@ -16,12 +16,17 @@ public class MeetingService {
     private final SupabaseClient supabaseClient;
     private final AccessControlService accessControlService;
 
-    public List<Map<String, Object>> getAll(int limit, int offset) {
+    private void applyMosqueFilter(Map<String, String> params, Integer mosqueId) {
+        if (mosqueId != null) params.put("mosque_id", "eq." + mosqueId);
+    }
+
+    public List<Map<String, Object>> getAll(int limit, int offset, Integer mosqueId) {
         accessControlService.requirePermission(null, Permission.MEETINGS_READ);
         var params = new HashMap<String, String>();
         params.put("limit", String.valueOf(limit));
         params.put("offset", String.valueOf(offset));
         params.put("order", "scheduled_at.desc");
+        applyMosqueFilter(params, mosqueId);
         return (List<Map<String, Object>>) (List<?>) supabaseClient.getAll("meetings", params, Map.class);
     }
 

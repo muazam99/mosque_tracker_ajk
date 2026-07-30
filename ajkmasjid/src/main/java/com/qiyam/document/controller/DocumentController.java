@@ -27,8 +27,10 @@ public class DocumentController {
             @Parameter(description = "Maximum number of records to return")
             @RequestParam(defaultValue = "20") int limit,
             @Parameter(description = "Number of records to skip")
-            @RequestParam(defaultValue = "0") int offset) {
-        return ResponseEntity.ok(documentService.getAll(limit, offset));
+            @RequestParam(defaultValue = "0") int offset,
+            @Parameter(description = "Filter by mosque ID")
+            @RequestParam(required = false) Integer mosqueId) {
+        return ResponseEntity.ok(documentService.getAll(limit, offset, mosqueId));
     }
 
     @GetMapping("/{id}")

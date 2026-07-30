@@ -19,12 +19,17 @@ public class CommitteeService {
 
     // ─── Committees (committee_roles) ─────────────────────────
 
-    public List<Map<String, Object>> getAllCommittees(int limit, int offset) {
+    private void applyMosqueFilter(Map<String, String> params, Integer mosqueId) {
+        if (mosqueId != null) params.put("mosque_id", "eq." + mosqueId);
+    }
+
+    public List<Map<String, Object>> getAllCommittees(int limit, int offset, Integer mosqueId) {
         accessControlService.requirePermission(null, Permission.MEMBERS_READ);
         var params = new HashMap<String, String>();
         params.put("limit", String.valueOf(limit));
         params.put("offset", String.valueOf(offset));
         params.put("order", "created_at.desc");
+        applyMosqueFilter(params, mosqueId);
         return (List<Map<String, Object>>) (List<?>) supabaseClient.getAll("committee_roles", params, Map.class);
     }
 

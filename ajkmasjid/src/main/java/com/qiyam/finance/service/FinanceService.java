@@ -18,14 +18,23 @@ public class FinanceService {
     private final SupabaseClient supabaseClient;
     private final AccessControlService accessControlService;
 
+    // ─── Helpers ─────────────────────────────────────────────
+
+    private void applyMosqueFilter(Map<String, String> params, Integer mosqueId) {
+        if (mosqueId != null) {
+            params.put("mosque_id", "eq." + mosqueId);
+        }
+    }
+
     // ─── Accounts ─────────────────────────────────────────────
 
-    public List<Map<String, Object>> getAllAccounts(int limit, int offset) {
+    public List<Map<String, Object>> getAllAccounts(int limit, int offset, Integer mosqueId) {
         accessControlService.requirePermission(null, Permission.FINANCE_READ);
         var params = new HashMap<String, String>();
         params.put("limit", String.valueOf(limit));
         params.put("offset", String.valueOf(offset));
         params.put("order", "created_at.desc");
+        applyMosqueFilter(params, mosqueId);
         return (List<Map<String, Object>>) (List<?>) supabaseClient.getAll("finance_accounts", params, Map.class);
     }
 
@@ -55,12 +64,13 @@ public class FinanceService {
 
     // ─── Transactions ─────────────────────────────────────────
 
-    public List<Map<String, Object>> getAllTransactions(int limit, int offset) {
+    public List<Map<String, Object>> getAllTransactions(int limit, int offset, Integer mosqueId) {
         accessControlService.requirePermission(null, Permission.FINANCE_READ);
         var params = new HashMap<String, String>();
         params.put("limit", String.valueOf(limit));
         params.put("offset", String.valueOf(offset));
         params.put("order", "transaction_date.desc");
+        applyMosqueFilter(params, mosqueId);
         return (List<Map<String, Object>>) (List<?>) supabaseClient.getAll("finance_transactions", params, Map.class);
     }
 
@@ -78,12 +88,13 @@ public class FinanceService {
 
     // ─── Reports (finance_audits) ────────────────────────────
 
-    public List<Map<String, Object>> getAllReports(int limit, int offset) {
+    public List<Map<String, Object>> getAllReports(int limit, int offset, Integer mosqueId) {
         accessControlService.requirePermission(null, Permission.REPORTS_READ);
         var params = new HashMap<String, String>();
         params.put("limit", String.valueOf(limit));
         params.put("offset", String.valueOf(offset));
         params.put("order", "created_at.desc");
+        applyMosqueFilter(params, mosqueId);
         return (List<Map<String, Object>>) (List<?>) supabaseClient.getAll("finance_audits", params, Map.class);
     }
 

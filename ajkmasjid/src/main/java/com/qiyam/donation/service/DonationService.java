@@ -17,14 +17,19 @@ public class DonationService {
     private final SupabaseClient supabaseClient;
     private final AccessControlService accessControlService;
 
+    private void applyMosqueFilter(Map<String, String> params, Integer mosqueId) {
+        if (mosqueId != null) params.put("mosque_id", "eq." + mosqueId);
+    }
+
     // ─── Donations ─────────────────────────────────────────
 
-    public List<Map<String, Object>> getAllDonations(int limit, int offset) {
+    public List<Map<String, Object>> getAllDonations(int limit, int offset, Integer mosqueId) {
         accessControlService.requirePermission(null, Permission.DONATIONS_READ);
         var params = new HashMap<String, String>();
         params.put("limit", String.valueOf(limit));
         params.put("offset", String.valueOf(offset));
         params.put("order", "date.desc");
+        applyMosqueFilter(params, mosqueId);
         return (List<Map<String, Object>>) (List<?>) supabaseClient.getAll("donations", params, Map.class);
     }
 
@@ -47,12 +52,13 @@ public class DonationService {
 
     // ─── Campaigns ─────────────────────────────────────────
 
-    public List<Map<String, Object>> getAllCampaigns(int limit, int offset) {
+    public List<Map<String, Object>> getAllCampaigns(int limit, int offset, Integer mosqueId) {
         accessControlService.requirePermission(null, Permission.DONATIONS_READ);
         var params = new HashMap<String, String>();
         params.put("limit", String.valueOf(limit));
         params.put("offset", String.valueOf(offset));
         params.put("order", "start_date.desc");
+        applyMosqueFilter(params, mosqueId);
         return (List<Map<String, Object>>) (List<?>) supabaseClient.getAll("donation_campaigns", params, Map.class);
     }
 

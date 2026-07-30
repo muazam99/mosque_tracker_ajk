@@ -31,8 +31,10 @@ public class FinanceController {
             @Parameter(description = "Maximum number of records to return")
             @RequestParam(defaultValue = "20") int limit,
             @Parameter(description = "Number of records to skip")
-            @RequestParam(defaultValue = "0") int offset) {
-        return ResponseEntity.ok(financeService.getAllAccounts(limit, offset));
+            @RequestParam(defaultValue = "0") int offset,
+            @Parameter(description = "Filter by mosque ID")
+            @RequestParam(required = false) Integer mosqueId) {
+        return ResponseEntity.ok(financeService.getAllAccounts(limit, offset, mosqueId));
     }
 
     @GetMapping("/accounts/{id}")
@@ -74,8 +76,10 @@ public class FinanceController {
             @Parameter(description = "Maximum number of records to return")
             @RequestParam(defaultValue = "20") int limit,
             @Parameter(description = "Number of records to skip")
-            @RequestParam(defaultValue = "0") int offset) {
-        return ResponseEntity.ok(financeService.getAllTransactions(limit, offset));
+            @RequestParam(defaultValue = "0") int offset,
+            @Parameter(description = "Filter by mosque ID")
+            @RequestParam(required = false) Integer mosqueId) {
+        return ResponseEntity.ok(financeService.getAllTransactions(limit, offset, mosqueId));
     }
 
     @GetMapping("/transactions/{id}")
@@ -101,8 +105,10 @@ public class FinanceController {
             @Parameter(description = "Maximum number of records to return")
             @RequestParam(defaultValue = "20") int limit,
             @Parameter(description = "Number of records to skip")
-            @RequestParam(defaultValue = "0") int offset) {
-        return ResponseEntity.ok(financeService.getAllReports(limit, offset));
+            @RequestParam(defaultValue = "0") int offset,
+            @Parameter(description = "Filter by mosque ID")
+            @RequestParam(required = false) Integer mosqueId) {
+        return ResponseEntity.ok(financeService.getAllReports(limit, offset, mosqueId));
     }
 
     @GetMapping("/reports/{id}")
