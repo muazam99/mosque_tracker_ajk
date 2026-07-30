@@ -34,7 +34,7 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         var paths = appProperties.security().permittedPaths();
         var swaggerEnabled = appProperties.security().swaggerEnabled();
-        http.csrf(csrf -> csrf.ignoringRequestMatchers("/auth/**", "/api/v1/**"))
+        http.csrf(AbstractHttpConfigurer::disable)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> {
@@ -61,10 +61,9 @@ public class SecurityConfig {
         if (allowedOrigins != null && !allowedOrigins.isEmpty()) {
             configuration.setAllowedOrigins(allowedOrigins);
         } else {
-            configuration.setAllowedOriginPatterns(List.of("*"));
+            configuration.setAllowedOriginPatterns(List.of("http://localhost:[*]", "https://localhost:[*]"));
         }
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("*"));
+        configuration.setAllowedHeaders(List.of("Content-Type", "Authorization", "X-Requested-With"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
         var source = new UrlBasedCorsConfigurationSource();
