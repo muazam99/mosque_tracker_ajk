@@ -27,7 +27,7 @@ public class JwtTokenProvider {
     }
 
     public String generateToken(UUID userId, String username, String role) {
-        return generateToken(userId, username, role, null);
+        return generateToken(userId, username, role, (Set<Integer>) null);
     }
 
     /**
