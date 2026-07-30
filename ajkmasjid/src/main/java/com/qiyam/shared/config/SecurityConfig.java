@@ -63,6 +63,7 @@ public class SecurityConfig {
         } else {
             configuration.setAllowedOriginPatterns(List.of("http://localhost:[*]", "https://localhost:[*]"));
         }
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Content-Type", "Authorization", "X-Requested-With"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
