@@ -77,6 +77,15 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(resp);
     }
 
+    @ExceptionHandler(ConflictException.class)
+    public ResponseEntity<ErrorResponse> handleConflict(ConflictException ex, HttpServletRequest req) {
+        var resp = ErrorResponse.builder().status(HttpStatus.CONFLICT.value())
+                .error("Conflict").message(ex.getMessage())
+                .path(req.getRequestURI()).timestamp(Instant.now()).build();
+        log.warn("Conflict: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(resp);
+    }
+
     @ExceptionHandler(SupabaseException.class)
     public ResponseEntity<ErrorResponse> handleSupabaseError(SupabaseException ex, HttpServletRequest req) {
         var status = resolveHttpStatus(ex.getStatusCode());

@@ -131,6 +131,30 @@ public class SupabaseClient {
         }
     }
 
+    /**
+     * Like {@link #post}, but returns the inserted row instead of an empty body
+     * (uses "Prefer: return=representation" — PostgREST responds with a JSON array).
+     */
+    @SuppressWarnings("unchecked")
+    public <T> T postReturning(String table, Object body, Class<T> clazz) {
+        try {
+            var url = baseUrl() + "/" + encodeTable(table);
+            var entity = new HttpEntity<>(body, headersWithRepresentation());
+            log.debug("POST (returning) {}", url);
+            var response = restTemplate.exchange(
+                    url, HttpMethod.POST, entity,
+                    new ParameterizedTypeReference<List<Map<String, Object>>>() {});
+            var rows = response.getBody();
+            return rows != null && !rows.isEmpty() ? (T) rows.get(0) : null;
+        } catch (ResourceAccessException e) {
+            log.error("Supabase connection failed: {}", e.getMessage());
+            throw new SupabaseException(503, "Cannot reach Supabase at " + baseUrl() + " – " + e.getMessage());
+        } catch (HttpClientErrorException | HttpServerErrorException e) {
+            log.error("Supabase POST error [{}]: {}", e.getStatusCode(), e.getResponseBodyAsString());
+            throw new SupabaseException(e.getStatusCode().value(), "Failed to create record: " + e.getResponseBodyAsString());
+        }
+    }
+
     public <T> T patch(String table, String column, String value, Object body, Class<T> clazz) {
         try {
             var url = baseUrl() + "/" + encodeTable(table) + "?" + encodeColumn(column) + "=eq." + encodeValue(value);

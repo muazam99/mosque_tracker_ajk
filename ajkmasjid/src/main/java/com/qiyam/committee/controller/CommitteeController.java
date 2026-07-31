@@ -2,6 +2,7 @@ package com.qiyam.committee.controller;
 
 import com.qiyam.committee.dto.CommitteeRequest;
 import com.qiyam.committee.dto.MemberRequest;
+import com.qiyam.committee.dto.RoleMemberRequest;
 import com.qiyam.committee.service.CommitteeService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -23,15 +24,13 @@ public class CommitteeController {
     private final CommitteeService committeeService;
 
     @GetMapping
-    @Operation(summary = "Get all committees", description = "Returns a paginated list of all committees")
+    @Operation(summary = "Get all committees", description = "Returns a paginated list of all committees (a global, organization-wide role catalog — not mosque-scoped)")
     public ResponseEntity<List<Map<String, Object>>> getAll(
             @Parameter(description = "Maximum number of records to return")
             @RequestParam(defaultValue = "20") int limit,
             @Parameter(description = "Number of records to skip")
-            @RequestParam(defaultValue = "0") int offset,
-            @Parameter(description = "Filter by mosque ID")
-            @RequestParam(required = false) Integer mosqueId) {
-        return ResponseEntity.ok(committeeService.getAllCommittees(limit, offset, mosqueId));
+            @RequestParam(defaultValue = "0") int offset) {
+        return ResponseEntity.ok(committeeService.getAllCommittees(limit, offset));
     }
 
     @GetMapping("/{id}")
@@ -94,6 +93,31 @@ public class CommitteeController {
     @Operation(summary = "Remove committee member", description = "Removes a member from a specific committee")
     public ResponseEntity<Void> removeMember(@Parameter(description = "Committee ID") @PathVariable String id, @Parameter(description = "Member ID") @PathVariable String memberId) {
         committeeService.removeCommitteeMember(id, memberId);
+        return ResponseEntity.noContent().build();
+    }
+
+    // ─── Role Members ────────────────────────────────────────
+
+    @GetMapping("/{id}/role-members")
+    @Operation(summary = "Get committee role members", description = "Returns all users assigned to a committee role, across the mosques the caller has access to")
+    public ResponseEntity<List<Map<String, Object>>> getRoleMembers(@Parameter(description = "Committee role ID") @PathVariable String id) {
+        return ResponseEntity.ok(committeeService.getRoleMembers(id));
+    }
+
+    @PostMapping("/{id}/role-members")
+    @Operation(summary = "Assign a user to a committee role", description = "Assigns a user to a committee role at a specific mosque")
+    public ResponseEntity<Map<String, Object>> addRoleMember(
+            @Parameter(description = "Committee role ID") @PathVariable String id, @RequestBody RoleMemberRequest request) {
+        var created = committeeService.addRoleMember(id, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(created);
+    }
+
+    @DeleteMapping("/{id}/role-members/{memberId}")
+    @Operation(summary = "Remove a committee role member", description = "Removes a user's assignment to a committee role")
+    public ResponseEntity<Void> removeRoleMember(
+            @Parameter(description = "Committee role ID") @PathVariable String id,
+            @Parameter(description = "Role member ID") @PathVariable String memberId) {
+        committeeService.removeRoleMember(id, memberId);
         return ResponseEntity.noContent().build();
     }
 }
