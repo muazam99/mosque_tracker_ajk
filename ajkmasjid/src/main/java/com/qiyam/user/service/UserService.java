@@ -16,13 +16,50 @@ public class UserService {
     private final SupabaseClient supabaseClient;
     private final AccessControlService accessControlService;
 
-    public List<Map<String, Object>> getAll(int limit, int offset) {
+    /**
+     * @param search   optional case-insensitive substring match against username, fullname, or email
+     * @param mosqueId optional — restricts to users with a mosque_committees membership at this mosque.
+     *                 When omitted, results are NOT mosque-scoped (global search across all users the
+     *                 caller is permitted to see).
+     */
+    public List<Map<String, Object>> getAll(int limit, int offset, String search, Long mosqueId) {
         accessControlService.requirePermission(null, com.qiyam.shared.security.Permission.USERS_READ);
+
+        List<String> mosqueUserIds = null;
+        if (mosqueId != null) {
+            var memberParams = new HashMap<String, String>();
+            memberParams.put("mosque_id", "eq." + mosqueId);
+            var memberships = supabaseClient.getAll("mosque_committees", memberParams, Map.class);
+            mosqueUserIds = memberships.stream()
+                    .map(m -> String.valueOf(m.get("user_id")))
+                    .distinct()
+                    .toList();
+            if (mosqueUserIds.isEmpty()) {
+                return List.of();
+            }
+        }
+
         var params = new HashMap<String, String>();
         params.put("limit", String.valueOf(limit));
         params.put("offset", String.valueOf(offset));
         params.put("order", "created_at.desc");
+        if (search != null && !search.isBlank()) {
+            var escaped = escapeFilterValue(search.trim());
+            params.put("or", "(username.ilike.*" + escaped + "*,fullname.ilike.*" + escaped + "*,email.ilike.*" + escaped + "*)");
+        }
+        if (mosqueUserIds != null) {
+            params.put("id", "in.(" + String.join(",", mosqueUserIds) + ")");
+        }
         return (List<Map<String, Object>>) (List<?>) supabaseClient.getAll("users", params, Map.class);
+    }
+
+    /** Escapes characters that are structurally significant in a PostgREST filter value (comma, parens, backslash). */
+    private String escapeFilterValue(String value) {
+        return value
+                .replace("\\", "\\\\")
+                .replace(",", "\\,")
+                .replace("(", "\\(")
+                .replace(")", "\\)");
     }
 
     public Optional<Map<String, Object>> getById(String id) {

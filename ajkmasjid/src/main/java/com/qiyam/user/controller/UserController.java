@@ -22,13 +22,20 @@ public class UserController {
     private final UserService userService;
 
     @GetMapping
-    @Operation(summary = "Get all users", description = "Returns a paginated list of all platform users")
+    @Operation(summary = "Get all users", description = "Returns a paginated list of platform users, optionally filtered by a name/email search term and/or mosque")
     public ResponseEntity<List<Map<String, Object>>> getAll(
             @Parameter(description = "Maximum number of records to return")
             @RequestParam(defaultValue = "20") int limit,
             @Parameter(description = "Number of records to skip")
-            @RequestParam(defaultValue = "0") int offset) {
-        return ResponseEntity.ok(userService.getAll(limit, offset));
+            @RequestParam(defaultValue = "0") int offset,
+            @Parameter(description = "Alias for 'limit', matching this endpoint's per_page callers")
+            @RequestParam(name = "per_page", required = false) Integer perPage,
+            @Parameter(description = "Case-insensitive substring match against username, full name, or email")
+            @RequestParam(required = false) String search,
+            @Parameter(description = "Optional: restrict to users with a committee membership at this mosque. Omit for a global, unscoped search.")
+            @RequestParam(required = false) Long mosqueId) {
+        var effectiveLimit = perPage != null ? perPage : limit;
+        return ResponseEntity.ok(userService.getAll(effectiveLimit, offset, search, mosqueId));
     }
 
     @GetMapping("/{id}")
