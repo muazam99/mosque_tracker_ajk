@@ -12,6 +12,7 @@ import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 
+import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -53,7 +54,7 @@ public class SupabaseClient {
             var entity = new HttpEntity<>(headers());
             log.debug("GET {}", url);
             var response = restTemplate.exchange(
-                    url, HttpMethod.GET, entity,
+                    toUri(url), HttpMethod.GET, entity,
                     new ParameterizedTypeReference<List<T>>() {});
             var bodySize = response.getBody() != null ? response.getBody().size() : 0;
             log.info("GET {} -> HTTP {} returned {} rows", url, response.getStatusCode().value(), bodySize);
@@ -83,7 +84,7 @@ public class SupabaseClient {
             var allUrl = baseUrl() + "/" + encodeTable(table);
             var allEntity = new HttpEntity<>(headers());
             var allResponse = restTemplate.exchange(
-                    allUrl, HttpMethod.GET, allEntity,
+                    toUri(allUrl), HttpMethod.GET, allEntity,
                     new ParameterizedTypeReference<List<Map<String, Object>>>() {});
             List<Map<String, Object>> allRows = allResponse.getBody();
             if (allRows == null) allRows = new ArrayList<>();
@@ -119,7 +120,7 @@ public class SupabaseClient {
             h.set("Prefer", "return=minimal");
             var entity = new HttpEntity<>(body, h);
             log.debug("POST {}", url);
-            restTemplate.postForObject(url, entity, clazz);
+            restTemplate.postForObject(toUri(url), entity, clazz);
             // Record created successfully — return empty map since we used return=minimal
             return clazz == Map.class ? (T) Map.of() : null;
         } catch (ResourceAccessException e) {
@@ -142,7 +143,7 @@ public class SupabaseClient {
             var entity = new HttpEntity<>(body, headersWithRepresentation());
             log.debug("POST (returning) {}", url);
             var response = restTemplate.exchange(
-                    url, HttpMethod.POST, entity,
+                    toUri(url), HttpMethod.POST, entity,
                     new ParameterizedTypeReference<List<Map<String, Object>>>() {});
             var rows = response.getBody();
             return rows != null && !rows.isEmpty() ? (T) rows.get(0) : null;
@@ -160,7 +161,7 @@ public class SupabaseClient {
             var url = baseUrl() + "/" + encodeTable(table) + "?" + encodeColumn(column) + "=eq." + encodeValue(value);
             var entity = new HttpEntity<>(body, headers());
             log.debug("PATCH {}", url);
-            var response = restTemplate.exchange(url, HttpMethod.PATCH, entity, clazz);
+            var response = restTemplate.exchange(toUri(url), HttpMethod.PATCH, entity, clazz);
             return response.getBody();
         } catch (ResourceAccessException e) {
             log.error("Supabase connection failed: {}", e.getMessage());
@@ -176,7 +177,7 @@ public class SupabaseClient {
             var url = baseUrl() + "/" + encodeTable(table) + "?" + encodeColumn(column) + "=eq." + encodeValue(value);
             var entity = new HttpEntity<>(headers());
             log.debug("DELETE {}", url);
-            restTemplate.exchange(url, HttpMethod.DELETE, entity, Void.class);
+            restTemplate.exchange(toUri(url), HttpMethod.DELETE, entity, Void.class);
         } catch (ResourceAccessException e) {
             log.error("Supabase connection failed: {}", e.getMessage());
             throw new SupabaseException(503, "Cannot reach Supabase at " + baseUrl() + " – " + e.getMessage());
@@ -211,6 +212,19 @@ public class SupabaseClient {
     }
 
     // ─── Helpers ─────────────────────────────────────────────────────
+
+    /**
+     * Converts an already percent-encoded URL string into a {@link URI} before handing it
+     * to RestTemplate. RestTemplate's {@code exchange(String, ...)}/{@code postForObject(String, ...)}
+     * overloads treat the string as a URI *template* and re-encode it — since {@link #buildUrl}
+     * and friends already percent-encode column/value content via {@link #encodeValue}, that
+     * second pass double-encodes any reserved character (e.g. "(" becomes "%2528" on the wire
+     * instead of "%28"), which PostgREST then fails to parse. Passing a pre-built {@link URI}
+     * instead skips that re-encoding entirely.
+     */
+    private URI toUri(String url) {
+        return URI.create(url);
+    }
 
     private String buildUrl(String table, Map<String, String> params) {
         var sb = new StringBuilder(baseUrl() + "/" + encodeTable(table));
