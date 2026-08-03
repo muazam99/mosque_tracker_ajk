@@ -17,25 +17,33 @@ public class DonationService {
     private final SupabaseClient supabaseClient;
     private final AccessControlService accessControlService;
 
-    private void applyMosqueFilter(Map<String, String> params, Integer mosqueId) {
-        if (mosqueId != null) params.put("mosque_id", "eq." + mosqueId);
+    private void applyMosqueScope(Map<String, String> params, Set<Integer> scope) {
+        if (scope == null) return; // unrestricted (SUPER_ADMIN)
+        if (scope.size() == 1) {
+            params.put("mosque_id", "eq." + scope.iterator().next());
+        } else {
+            params.put("mosque_id", "in.(" + scope.stream().map(String::valueOf).collect(java.util.stream.Collectors.joining(",")) + ")");
+        }
     }
 
     // ─── Donations ─────────────────────────────────────────
 
     public List<Map<String, Object>> getAllDonations(int limit, int offset, Integer mosqueId) {
-        accessControlService.requirePermission(null, Permission.DONATIONS_READ);
+        var scope = accessControlService.resolveMosqueScope(null, Permission.DONATIONS_READ, mosqueId);
+        if (scope != null && scope.isEmpty()) return List.of();
         var params = new HashMap<String, String>();
         params.put("limit", String.valueOf(limit));
         params.put("offset", String.valueOf(offset));
         params.put("order", "date.desc");
-        applyMosqueFilter(params, mosqueId);
+        applyMosqueScope(params, scope);
         return (List<Map<String, Object>>) (List<?>) supabaseClient.getAll("donations", params, Map.class);
     }
 
     public Optional<Map<String, Object>> getDonationById(Long id) {
         accessControlService.requirePermission(null, Permission.DONATIONS_READ);
-        return (Optional<Map<String, Object>>) (Optional<?>) supabaseClient.getOne("donations", "id", String.valueOf(id), Map.class);
+        var row = (Optional<Map<String, Object>>) (Optional<?>) supabaseClient.getOne("donations", "id", String.valueOf(id), Map.class);
+        row.ifPresent(r -> accessControlService.requireRowMosqueAccess(null, r.get("mosque_id")));
+        return row;
     }
 
     public Map<String, Object> createDonation(DonationRequest request) {
@@ -47,28 +55,41 @@ public class DonationService {
 
     public void deleteDonation(Long id) {
         accessControlService.requirePermission(null, Permission.DONATIONS_DELETE);
+        verifyMosqueOwnership("donations", String.valueOf(id));
         supabaseClient.delete("donations", "id", String.valueOf(id));
+    }
+
+    /** Fetches a row by id and, if found, verifies the caller has access to its mosque_id. */
+    private void verifyMosqueOwnership(String table, String id) {
+        var row = supabaseClient.getOne(table, "id", id, Map.class);
+        row.ifPresent(r -> accessControlService.requireRowMosqueAccess(null, ((Map<?, ?>) r).get("mosque_id")));
     }
 
     // ─── Campaigns ─────────────────────────────────────────
 
     public List<Map<String, Object>> getAllCampaigns(int limit, int offset, Integer mosqueId) {
-        accessControlService.requirePermission(null, Permission.DONATIONS_READ);
+        var scope = accessControlService.resolveMosqueScope(null, Permission.DONATIONS_READ, mosqueId);
+        if (scope != null && scope.isEmpty()) return List.of();
         var params = new HashMap<String, String>();
         params.put("limit", String.valueOf(limit));
         params.put("offset", String.valueOf(offset));
         params.put("order", "start_date.desc");
-        applyMosqueFilter(params, mosqueId);
+        applyMosqueScope(params, scope);
         return (List<Map<String, Object>>) (List<?>) supabaseClient.getAll("donation_campaigns", params, Map.class);
     }
 
     public Optional<Map<String, Object>> getCampaignById(Long id) {
         accessControlService.requirePermission(null, Permission.DONATIONS_READ);
-        return (Optional<Map<String, Object>>) (Optional<?>) supabaseClient.getOne("donation_campaigns", "id", String.valueOf(id), Map.class);
+        var row = (Optional<Map<String, Object>>) (Optional<?>) supabaseClient.getOne("donation_campaigns", "id", String.valueOf(id), Map.class);
+        row.ifPresent(r -> accessControlService.requireRowMosqueAccess(null, r.get("mosque_id")));
+        return row;
     }
 
     public Map<String, Object> createCampaign(CampaignRequest request) {
         accessControlService.requirePermission(null, Permission.DONATIONS_WRITE);
+        if (request.getMosqueId() != null) {
+            accessControlService.requireRowMosqueAccess(null, request.getMosqueId());
+        }
         var body = campaignToMap(request);
         var result = supabaseClient.post("donation_campaigns", body, Map.class);
         return result != null ? result : Map.of();
@@ -76,6 +97,7 @@ public class DonationService {
 
     public Map<String, Object> updateCampaign(Long id, CampaignRequest request) {
         accessControlService.requirePermission(null, Permission.DONATIONS_WRITE);
+        verifyMosqueOwnership("donation_campaigns", String.valueOf(id));
         var body = campaignToMap(request);
         var result = supabaseClient.patch("donation_campaigns", "id", String.valueOf(id), body, Map.class);
         return result != null ? result : Map.of();

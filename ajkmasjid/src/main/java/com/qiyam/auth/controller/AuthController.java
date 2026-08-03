@@ -31,13 +31,14 @@ public class AuthController {
     @PostMapping("/login")
     @Operation(summary = "Authenticate user and set session cookie")
     public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request,
+                                                HttpServletRequest httpRequest,
                                                 HttpServletResponse response) {
         var loginResponse = authService.login(request);
 
         // Set httpOnly session cookie
         var cookie = new Cookie(SESSION_COOKIE, loginResponse.sessionId());
         cookie.setHttpOnly(true);
-        cookie.setSecure(false); // Set to true in production with HTTPS
+        cookie.setSecure(httpRequest.isSecure()); // Secure whenever the request itself arrived over HTTPS
         cookie.setPath("/");
         cookie.setMaxAge(24 * 60 * 60); // 24 hours
         cookie.setAttribute("SameSite", "Lax");
@@ -61,7 +62,7 @@ public class AuthController {
         // Clear cookie
         var cookie = new Cookie(SESSION_COOKIE, "");
         cookie.setHttpOnly(true);
-        cookie.setSecure(false);
+        cookie.setSecure(request.isSecure());
         cookie.setPath("/");
         cookie.setMaxAge(0);
         cookie.setAttribute("SameSite", "Lax");
@@ -91,6 +92,9 @@ public class AuthController {
     @Operation(summary = "Get per-mosque committee memberships for the current user")
     public ResponseEntity<List<MosqueMembership>> getMemberships(
             @AuthenticationPrincipal UserPrincipal principal) {
+        if (principal == null) {
+            return ResponseEntity.status(401).build();
+        }
         return ResponseEntity.ok(authService.getMemberships(principal));
     }
 }

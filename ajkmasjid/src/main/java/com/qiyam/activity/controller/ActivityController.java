@@ -6,7 +6,6 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -27,8 +26,10 @@ public class ActivityController {
             @Parameter(description = "Maximum number of records to return")
             @RequestParam(defaultValue = "20") int limit,
             @Parameter(description = "Number of records to skip")
-            @RequestParam(defaultValue = "0") int offset) {
-        return ResponseEntity.ok(activityService.getAll(limit, offset));
+            @RequestParam(defaultValue = "0") int offset,
+            @Parameter(description = "Filter by mosque ID")
+            @RequestParam(required = false) Integer mosqueId) {
+        return ResponseEntity.ok(activityService.getAll(limit, offset, mosqueId));
     }
 
     @GetMapping("/{id}")
@@ -52,7 +53,6 @@ public class ActivityController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Delete an activity", description = "Deletes an activity by ID")
     public ResponseEntity<Void> delete(@Parameter(description = "Activity ID") @PathVariable Long id) {
         activityService.delete(id);
@@ -75,7 +75,6 @@ public class ActivityController {
     }
 
     @DeleteMapping("/{id}/register")
-    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Cancel registration", description = "Cancels a user's registration for an activity")
     public ResponseEntity<Void> cancelRegistration(
             @Parameter(description = "Activity ID") @PathVariable Long id,

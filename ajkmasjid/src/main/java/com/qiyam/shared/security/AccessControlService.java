@@ -6,6 +6,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
+import java.util.Collections;
 import java.util.Set;
 
 /**
@@ -101,5 +102,49 @@ public class AccessControlService {
         if (user == null) return java.util.Collections.emptySet();
         if (user.isSuperAdmin()) return null; // null = all access
         return user.mosqueIds() != null ? user.mosqueIds() : java.util.Collections.emptySet();
+    }
+
+    /**
+     * Checks the given permission, then resolves which mosque IDs a list/read query should
+     * be scoped to. This is the central guard against cross-mosque data leakage on endpoints
+     * that accept an optional {@code mosqueId} filter.
+     *
+     * <ul>
+     *   <li>SUPER_ADMIN with no requested mosque → {@code null} (unrestricted, no filter applied)</li>
+     *   <li>Any user requesting a specific mosque → validated against their access, then that
+     *       single mosque as a singleton set (throws {@link AccessDeniedException} if not permitted)</li>
+     *   <li>Regular user with no requested mosque → their own mosque memberships (never "everything"),
+     *       which may be an empty set if they belong to none</li>
+     * </ul>
+     */
+    public Set<Integer> resolveMosqueScope(Authentication auth, Permission permission, Integer requestedMosqueId) {
+        requirePermission(auth, permission);
+        var user = UserPrincipal.requireFrom(resolveAuth(auth));
+        if (requestedMosqueId != null) {
+            if (!user.hasMosqueAccess(requestedMosqueId)) {
+                log.warn("Mosque access denied: user {} mosques {} does not include {}",
+                        user.userId(), user.mosqueIds(), requestedMosqueId);
+                throw new AccessDeniedException("Access denied to this mosque's data");
+            }
+            return Set.of(requestedMosqueId);
+        }
+        if (user.isSuperAdmin()) return null;
+        return user.mosqueIds() != null ? user.mosqueIds() : Collections.emptySet();
+    }
+
+    /**
+     * Verifies the caller may access a single already-fetched row, given its raw {@code mosque_id}
+     * value (typically a {@link Number} from a Supabase/PostgREST response map). Call this after
+     * a get-by-id lookup to prevent cross-mosque IDOR reads on resources that don't accept a
+     * {@code mosqueId} query filter.
+     */
+    public void requireRowMosqueAccess(Authentication auth, Object mosqueIdValue) {
+        var user = UserPrincipal.requireFrom(resolveAuth(auth));
+        var mosqueId = mosqueIdValue instanceof Number n ? n.intValue() : null;
+        if (!user.hasMosqueAccess(mosqueId)) {
+            log.warn("Row access denied: user {} mosques {} does not include {}",
+                    user.userId(), user.mosqueIds(), mosqueId);
+            throw new AccessDeniedException("Access denied to this mosque's data");
+        }
     }
 }

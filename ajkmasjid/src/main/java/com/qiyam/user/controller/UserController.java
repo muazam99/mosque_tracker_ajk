@@ -1,17 +1,17 @@
 package com.qiyam.user.controller;
 
+import com.qiyam.shared.dto.PagedResponse;
+import com.qiyam.shared.util.Pagination;
 import com.qiyam.user.dto.UserRequest;
 import com.qiyam.user.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -23,19 +23,23 @@ public class UserController {
 
     @GetMapping
     @Operation(summary = "Get all users", description = "Returns a paginated list of platform users, optionally filtered by a name/email search term and/or mosque")
-    public ResponseEntity<List<Map<String, Object>>> getAll(
+    public ResponseEntity<PagedResponse<Map<String, Object>>> getAll(
             @Parameter(description = "Maximum number of records to return")
             @RequestParam(defaultValue = "20") int limit,
             @Parameter(description = "Number of records to skip")
             @RequestParam(defaultValue = "0") int offset,
+            @Parameter(description = "1-indexed page number; takes precedence over 'offset' when given")
+            @RequestParam(required = false) Integer page,
             @Parameter(description = "Alias for 'limit', matching this endpoint's per_page callers")
             @RequestParam(name = "per_page", required = false) Integer perPage,
             @Parameter(description = "Case-insensitive substring match against username, full name, or email")
             @RequestParam(required = false) String search,
             @Parameter(description = "Optional: restrict to users with a committee membership at this mosque. Omit for a global, unscoped search.")
             @RequestParam(required = false) Long mosqueId) {
-        var effectiveLimit = perPage != null ? perPage : limit;
-        return ResponseEntity.ok(userService.getAll(effectiveLimit, offset, search, mosqueId));
+        var effectiveLimit = Pagination.resolveLimit(perPage, limit);
+        var effectiveOffset = Pagination.resolveOffset(page, effectiveLimit, offset);
+        var resolvedPage = Pagination.resolvePage(page, effectiveOffset, effectiveLimit);
+        return ResponseEntity.ok(userService.getAll(effectiveLimit, effectiveOffset, resolvedPage, search, mosqueId));
     }
 
     @GetMapping("/{id}")
@@ -59,7 +63,6 @@ public class UserController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Delete a user", description = "Deletes a user record by ID")
     public ResponseEntity<Void> delete(@Parameter(description = "User ID") @PathVariable String id) {
         userService.delete(id);

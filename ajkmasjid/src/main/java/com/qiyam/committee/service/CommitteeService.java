@@ -64,7 +64,13 @@ public class CommitteeService {
         var params = new HashMap<String, String>();
         params.put("committee_role_id", "eq." + committeeId);
         params.put("order", "created_at.desc");
-        return (List<Map<String, Object>>) (List<?>) supabaseClient.getAll("mosque_committees", params, Map.class);
+        var rows = (List<Map<String, Object>>) (List<?>) supabaseClient.getAll("mosque_committees", params, Map.class);
+
+        var allowedMosqueIds = accessControlService.getMosqueIds(null);
+        if (allowedMosqueIds == null) return rows; // SUPER_ADMIN — unrestricted
+        return rows.stream()
+                .filter(row -> allowedMosqueIds.contains(toMosqueId(row.get("mosque_id"))))
+                .toList();
     }
 
     public Map<String, Object> addCommitteeMember(String committeeId, MemberRequest request) {

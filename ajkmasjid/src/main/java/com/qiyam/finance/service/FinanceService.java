@@ -20,31 +20,41 @@ public class FinanceService {
 
     // ─── Helpers ─────────────────────────────────────────────
 
-    private void applyMosqueFilter(Map<String, String> params, Integer mosqueId) {
-        if (mosqueId != null) {
-            params.put("mosque_id", "eq." + mosqueId);
+    /** Applies a resolved mosque scope (see {@link AccessControlService#resolveMosqueScope}) to query params. */
+    private void applyMosqueScope(Map<String, String> params, Set<Integer> scope) {
+        if (scope == null) return; // unrestricted (SUPER_ADMIN)
+        if (scope.size() == 1) {
+            params.put("mosque_id", "eq." + scope.iterator().next());
+        } else {
+            params.put("mosque_id", "in.(" + scope.stream().map(String::valueOf).collect(java.util.stream.Collectors.joining(",")) + ")");
         }
     }
 
     // ─── Accounts ─────────────────────────────────────────────
 
     public List<Map<String, Object>> getAllAccounts(int limit, int offset, Integer mosqueId) {
-        accessControlService.requirePermission(null, Permission.FINANCE_READ);
+        var scope = accessControlService.resolveMosqueScope(null, Permission.FINANCE_READ, mosqueId);
+        if (scope != null && scope.isEmpty()) return List.of();
         var params = new HashMap<String, String>();
         params.put("limit", String.valueOf(limit));
         params.put("offset", String.valueOf(offset));
         params.put("order", "created_at.desc");
-        applyMosqueFilter(params, mosqueId);
+        applyMosqueScope(params, scope);
         return (List<Map<String, Object>>) (List<?>) supabaseClient.getAll("finance_accounts", params, Map.class);
     }
 
     public Optional<Map<String, Object>> getAccountById(Long id) {
         accessControlService.requirePermission(null, Permission.FINANCE_READ);
-        return (Optional<Map<String, Object>>) (Optional<?>) supabaseClient.getOne("finance_accounts", "id", String.valueOf(id), Map.class);
+        var row = (Optional<Map<String, Object>>) (Optional<?>) supabaseClient.getOne("finance_accounts", "id", String.valueOf(id), Map.class);
+        row.ifPresent(r -> accessControlService.requireRowMosqueAccess(null, r.get("mosque_id")));
+        return row;
     }
 
     public Map<String, Object> createAccount(FinanceAccountRequest request) {
         accessControlService.requirePermission(null, Permission.FINANCE_WRITE);
+        if (request.getMosqueId() != null) {
+            accessControlService.requireRowMosqueAccess(null, request.getMosqueId());
+        }
         var body = accountToMap(request);
         var result = supabaseClient.post("finance_accounts", body, Map.class);
         return result != null ? result : Map.of();
@@ -52,6 +62,7 @@ public class FinanceService {
 
     public Map<String, Object> updateAccount(Long id, FinanceAccountRequest request) {
         accessControlService.requirePermission(null, Permission.FINANCE_WRITE);
+        verifyMosqueOwnership("finance_accounts", String.valueOf(id));
         var body = accountToMap(request);
         var result = supabaseClient.patch("finance_accounts", "id", String.valueOf(id), body, Map.class);
         return result != null ? result : Map.of();
@@ -59,28 +70,41 @@ public class FinanceService {
 
     public void deleteAccount(Long id) {
         accessControlService.requirePermission(null, Permission.FINANCE_DELETE);
+        verifyMosqueOwnership("finance_accounts", String.valueOf(id));
         supabaseClient.delete("finance_accounts", "id", String.valueOf(id));
+    }
+
+    /** Fetches a row by id and, if found, verifies the caller has access to its mosque_id. */
+    private void verifyMosqueOwnership(String table, String id) {
+        var row = supabaseClient.getOne(table, "id", id, Map.class);
+        row.ifPresent(r -> accessControlService.requireRowMosqueAccess(null, ((Map<?, ?>) r).get("mosque_id")));
     }
 
     // ─── Transactions ─────────────────────────────────────────
 
     public List<Map<String, Object>> getAllTransactions(int limit, int offset, Integer mosqueId) {
-        accessControlService.requirePermission(null, Permission.FINANCE_READ);
+        var scope = accessControlService.resolveMosqueScope(null, Permission.FINANCE_READ, mosqueId);
+        if (scope != null && scope.isEmpty()) return List.of();
         var params = new HashMap<String, String>();
         params.put("limit", String.valueOf(limit));
         params.put("offset", String.valueOf(offset));
         params.put("order", "transaction_date.desc");
-        applyMosqueFilter(params, mosqueId);
+        applyMosqueScope(params, scope);
         return (List<Map<String, Object>>) (List<?>) supabaseClient.getAll("finance_transactions", params, Map.class);
     }
 
     public Optional<Map<String, Object>> getTransactionById(Long id) {
         accessControlService.requirePermission(null, Permission.FINANCE_READ);
-        return (Optional<Map<String, Object>>) (Optional<?>) supabaseClient.getOne("finance_transactions", "id", String.valueOf(id), Map.class);
+        var row = (Optional<Map<String, Object>>) (Optional<?>) supabaseClient.getOne("finance_transactions", "id", String.valueOf(id), Map.class);
+        row.ifPresent(r -> accessControlService.requireRowMosqueAccess(null, r.get("mosque_id")));
+        return row;
     }
 
     public Map<String, Object> createTransaction(FinanceTransactionRequest request) {
         accessControlService.requirePermission(null, Permission.FINANCE_WRITE);
+        if (request.getMosqueId() != null) {
+            accessControlService.requireRowMosqueAccess(null, request.getMosqueId());
+        }
         var body = transactionToMap(request);
         var result = supabaseClient.post("finance_transactions", body, Map.class);
         return result != null ? result : Map.of();
@@ -89,22 +113,28 @@ public class FinanceService {
     // ─── Reports (finance_audits) ────────────────────────────
 
     public List<Map<String, Object>> getAllReports(int limit, int offset, Integer mosqueId) {
-        accessControlService.requirePermission(null, Permission.REPORTS_READ);
+        var scope = accessControlService.resolveMosqueScope(null, Permission.REPORTS_READ, mosqueId);
+        if (scope != null && scope.isEmpty()) return List.of();
         var params = new HashMap<String, String>();
         params.put("limit", String.valueOf(limit));
         params.put("offset", String.valueOf(offset));
         params.put("order", "created_at.desc");
-        applyMosqueFilter(params, mosqueId);
+        applyMosqueScope(params, scope);
         return (List<Map<String, Object>>) (List<?>) supabaseClient.getAll("finance_audits", params, Map.class);
     }
 
     public Optional<Map<String, Object>> getReportById(Long id) {
         accessControlService.requirePermission(null, Permission.REPORTS_READ);
-        return (Optional<Map<String, Object>>) (Optional<?>) supabaseClient.getOne("finance_audits", "id", String.valueOf(id), Map.class);
+        var row = (Optional<Map<String, Object>>) (Optional<?>) supabaseClient.getOne("finance_audits", "id", String.valueOf(id), Map.class);
+        row.ifPresent(r -> accessControlService.requireRowMosqueAccess(null, r.get("mosque_id")));
+        return row;
     }
 
     public Map<String, Object> createReport(FinanceReportRequest request) {
         accessControlService.requirePermission(null, Permission.REPORTS_WRITE);
+        if (request.getMosqueId() != null) {
+            accessControlService.requireRowMosqueAccess(null, request.getMosqueId());
+        }
         var body = reportToMap(request);
         var result = supabaseClient.post("finance_audits", body, Map.class);
         return result != null ? result : Map.of();

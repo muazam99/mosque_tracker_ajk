@@ -71,38 +71,76 @@ public class SupabaseClient {
         }
     }
 
+    /** A page of rows plus the total number of rows matching the filter (ignoring limit/offset). */
+    public record PageResult<T>(List<T> data, long total) {}
+
+    /**
+     * Like {@link #getAll}, but also asks PostgREST for an exact total count of rows matching
+     * the filter (via {@code Prefer: count=exact}), read back off the {@code Content-Range}
+     * response header. Use this for any endpoint that needs to report a total/page count to
+     * the caller — {@link #getAll} alone only ever tells you how many rows came back in this page.
+     */
+    public <T> PageResult<T> getAllPaged(String table, Map<String, String> params, Class<T> clazz) {
+        var url = buildUrl(table, params);
+        try {
+            var headers = headers();
+            headers.set("Prefer", "count=exact");
+            var entity = new HttpEntity<>(headers);
+            log.debug("GET (paged) {}", url);
+            var response = restTemplate.exchange(
+                    toUri(url), HttpMethod.GET, entity,
+                    new ParameterizedTypeReference<List<T>>() {});
+            var rows = response.getBody() != null ? response.getBody() : List.<T>of();
+            var total = parseTotalCount(response.getHeaders().getFirst("Content-Range"), rows.size());
+            log.info("GET {} -> HTTP {} returned {} of {} total rows", url, response.getStatusCode().value(), rows.size(), total);
+            return new PageResult<>(rows, total);
+        } catch (HttpClientErrorException.NotFound e) {
+            log.warn("GET {} -> HTTP 404 (NotFound)", url);
+            return new PageResult<>(List.of(), 0);
+        } catch (ResourceAccessException e) {
+            log.error("Supabase connection failed: {}", e.getMessage());
+            throw new SupabaseException(503, "Cannot reach Supabase at " + baseUrl() + " – " + e.getMessage());
+        } catch (HttpClientErrorException | HttpServerErrorException e) {
+            log.error("Supabase GET error [{}]: {}", e.getStatusCode(), e.getResponseBodyAsString());
+            throw new SupabaseException(e.getStatusCode().value(), "Failed to fetch " + table);
+        }
+    }
+
+    /** Parses PostgREST's {@code Content-Range: <start>-<end>/<total>} header (total may be "*" if unknown). */
+    private long parseTotalCount(String contentRange, int fallback) {
+        if (contentRange == null) return fallback;
+        var slash = contentRange.lastIndexOf('/');
+        if (slash < 0 || slash == contentRange.length() - 1) return fallback;
+        var totalStr = contentRange.substring(slash + 1);
+        if ("*".equals(totalStr)) return fallback;
+        try {
+            return Long.parseLong(totalStr);
+        } catch (NumberFormatException e) {
+            return fallback;
+        }
+    }
+
     @SuppressWarnings("unchecked")
     public <T> Optional<T> getOne(String table, String column, String value, Class<T> clazz) {
         try {
-            // Build URL directly to avoid encoding the "eq." operator prefix
+            // Pre-encoded query string handed to toUri() as-is — see toUri() javadoc for why
+            // RestTemplate must not re-encode it.
             var url = baseUrl() + "/" + encodeTable(table) + "?"
-                    + encodeColumn(column) + "=eq." + encodeValue(value);
-            log.info("getOne URL: {}", url);
+                    + encodeColumn(column) + "=eq." + encodeValue(value) + "&limit=1";
             var entity = new HttpEntity<>(headers());
-
-            // Fetch all rows (bypasses PostgREST filter issues)
-            var allUrl = baseUrl() + "/" + encodeTable(table);
-            var allEntity = new HttpEntity<>(headers());
-            var allResponse = restTemplate.exchange(
-                    toUri(allUrl), HttpMethod.GET, allEntity,
+            var response = restTemplate.exchange(
+                    toUri(url), HttpMethod.GET, entity,
                     new ParameterizedTypeReference<List<Map<String, Object>>>() {});
-            List<Map<String, Object>> allRows = allResponse.getBody();
-            if (allRows == null) allRows = new ArrayList<>();
-            log.info("getOne: fetched {} rows from table, searching for {}={}",
-                    allRows.size(), column, value);
-
-            // Filter in-memory
-            for (Map<String, Object> row : allRows) {
-                var fieldValue = row.get(column);
-                if (fieldValue != null && Objects.toString(fieldValue).equals(value)) {
-                    log.info("getOne: found matching row for {}={}", column, value);
-                    return Optional.of((T) row);
-                }
+            var rows = response.getBody();
+            if (rows == null || rows.isEmpty()) {
+                log.debug("getOne: no row found for {}={} in {}", column, value, table);
+                return Optional.empty();
             }
-            log.warn("getOne: no row found for {}={} in {} rows", column, value, allRows.size());
-            return Optional.empty();
+            return Optional.of((T) rows.get(0));
         } catch (SupabaseException e) {
             throw e;
+        } catch (HttpClientErrorException.NotFound e) {
+            return Optional.empty();
         } catch (ResourceAccessException e) {
             log.error("Supabase connection failed in getOne: {}", e.getMessage());
             throw new SupabaseException(503, "Cannot reach Supabase at " + baseUrl() + " – " + e.getMessage());

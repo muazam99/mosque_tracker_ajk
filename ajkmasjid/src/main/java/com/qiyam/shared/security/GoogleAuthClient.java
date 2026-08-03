@@ -5,6 +5,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.util.Map;
 
@@ -31,10 +32,12 @@ public class GoogleAuthClient {
      */
     @SuppressWarnings("unchecked")
     public Map<String, Object> verifyIdToken(String idToken) {
-        var url = "https://oauth2.googleapis.com/tokeninfo?id_token=" + idToken;
+        var uri = UriComponentsBuilder.fromUriString("https://oauth2.googleapis.com/tokeninfo")
+                .queryParam("id_token", "{token}")
+                .build(idToken);
 
         try {
-            var response = restTemplate.exchange(url, HttpMethod.GET, null, Map.class);
+            var response = restTemplate.exchange(uri, HttpMethod.GET, null, Map.class);
             if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
                 var body = response.getBody();
                 var aud = (String) body.get("aud"); // audience should match our client ID

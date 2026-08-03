@@ -49,9 +49,18 @@ public class MosqueService {
     public List<Map<String, Object>> searchMosques(String query, int limit) {
         accessControlService.requirePermission(null, Permission.MOSQUE_SETTINGS_READ);
         var params = new HashMap<String, String>();
-        params.put("name", "ilike.*" + query + "*");
+        params.put("name", "ilike.*" + escapeFilterValue(query) + "*");
         params.put("limit", String.valueOf(limit));
         return (List<Map<String, Object>>) (List<?>) supabaseClient.getAll("mosques", params, Map.class);
+    }
+
+    /** Escapes characters that are structurally significant in a PostgREST filter value (comma, parens, backslash). */
+    private String escapeFilterValue(String value) {
+        return value
+                .replace("\\", "\\\\")
+                .replace(",", "\\,")
+                .replace("(", "\\(")
+                .replace(")", "\\)");
     }
 
     public Map<String, Object> createMosque(MosqueRequest request) {

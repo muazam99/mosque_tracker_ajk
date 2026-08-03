@@ -1,5 +1,6 @@
 package com.qiyam.auth.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.qiyam.shared.security.Role;
 
 import java.util.List;
@@ -16,9 +17,12 @@ import java.util.UUID;
 /**
  * @param token     Deprecated — always null since session cookie migration.
  *                  Kept for backward compatibility with old frontends.
- * @param sessionId The opaque session UUID set as an httpOnly cookie.
- *                  Frontend does NOT read this; it's only for the response
- *                  so the controller can set the Set‑Cookie header.
+ * @param sessionId The opaque session UUID set as an httpOnly cookie. Excluded from the
+ *                  serialized JSON body (see {@link JsonIgnore}) — it exists solely so
+ *                  the controller can read it off the returned object to set the
+ *                  Set‑Cookie header; duplicating it into the response body would
+ *                  defeat the point of the httpOnly cookie by handing the raw session
+ *                  token to any JS (or XSS) that can read the fetch response.
  */
 public record LoginResponse(
         UUID userId,
@@ -30,4 +34,4 @@ public record LoginResponse(
         Set<Integer> mosqueIds,
         List<String> permissions,
         List<MosqueMembership> memberships,
-        String sessionId) {}
+        @JsonIgnore String sessionId) {}

@@ -2,6 +2,7 @@ package com.qiyam.user.service;
 
 import com.qiyam.user.dto.UserRequest;
 import com.qiyam.shared.client.SupabaseClient;
+import com.qiyam.shared.dto.PagedResponse;
 import com.qiyam.shared.security.AccessControlService;
 import com.qiyam.shared.security.Role;
 import lombok.RequiredArgsConstructor;
@@ -22,7 +23,7 @@ public class UserService {
      *                 When omitted, results are NOT mosque-scoped (global search across all users the
      *                 caller is permitted to see).
      */
-    public List<Map<String, Object>> getAll(int limit, int offset, String search, Long mosqueId) {
+    public PagedResponse<Map<String, Object>> getAll(int limit, int offset, int page, String search, Long mosqueId) {
         accessControlService.requirePermission(null, com.qiyam.shared.security.Permission.USERS_READ);
 
         List<String> mosqueUserIds = null;
@@ -35,7 +36,7 @@ public class UserService {
                     .distinct()
                     .toList();
             if (mosqueUserIds.isEmpty()) {
-                return List.of();
+                return PagedResponse.empty(page, limit);
             }
         }
 
@@ -50,7 +51,8 @@ public class UserService {
         if (mosqueUserIds != null) {
             params.put("id", "in.(" + String.join(",", mosqueUserIds) + ")");
         }
-        return (List<Map<String, Object>>) (List<?>) supabaseClient.getAll("users", params, Map.class);
+        var result = supabaseClient.getAllPaged("users", params, Map.class);
+        return PagedResponse.of((List<Map<String, Object>>) (List<?>) result.data(), result.total(), page, limit);
     }
 
     /** Escapes characters that are structurally significant in a PostgREST filter value (comma, parens, backslash). */
