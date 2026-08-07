@@ -69,6 +69,18 @@ public class SecurityConfig {
         configuration.setMaxAge(3600L);
         var source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
+        // Separate, more permissive CORS for the read-only public Islamic API: no session
+        // cookie is used on these routes, so allowCredentials stays false and a wildcard
+        // origin is safe — this does NOT loosen anything for the authenticated AJK API above.
+        var publicOrigins = appProperties.cors().publicAllowedOrigins();
+        var publicConfiguration = new CorsConfiguration();
+        publicConfiguration.setAllowedOriginPatterns(
+                publicOrigins != null && !publicOrigins.isEmpty() ? publicOrigins : List.of("*"));
+        publicConfiguration.setAllowedMethods(List.of("GET", "OPTIONS"));
+        publicConfiguration.setAllowedHeaders(List.of("Content-Type"));
+        publicConfiguration.setAllowCredentials(false);
+        publicConfiguration.setMaxAge(3600L);
+        source.registerCorsConfiguration("/public/**", publicConfiguration);
         return source;
     }
 

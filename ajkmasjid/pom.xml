@@ -24,12 +24,30 @@
         <lombok-mapstruct-binding.version>0.2.0</lombok-mapstruct-binding.version>
         <springdoc.version>2.7.0</springdoc.version>
         <awssdk.version>2.29.52</awssdk.version>
+        <caffeine.version>3.1.8</caffeine.version>
+        <bucket4j.version>8.14.0</bucket4j.version>
     </properties>
 
     <dependencies>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-cache</artifactId>
+        </dependency>
+        <!-- Backs the public Islamic API's cache (prayer times / hijri / events / quran / hadith). -->
+        <dependency>
+            <groupId>com.github.ben-manes.caffeine</groupId>
+            <artifactId>caffeine</artifactId>
+            <version>${caffeine.version}</version>
+        </dependency>
+        <!-- Per-IP rate limiting for the unauthenticated public Islamic API. jdk11 artifact runs fine on JDK 17. -->
+        <dependency>
+            <groupId>com.bucket4j</groupId>
+            <artifactId>bucket4j_jdk11-core</artifactId>
+            <version>${bucket4j.version}</version>
         </dependency>
         <!-- Cloudflare R2 is S3-compatible; used to upload document files (see R2StorageClient). -->
         <dependency>

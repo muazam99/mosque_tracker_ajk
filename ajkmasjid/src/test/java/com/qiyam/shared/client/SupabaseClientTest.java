@@ -44,7 +44,7 @@ class SupabaseClientTest {
     @BeforeEach
     void setUp() {
         var supabase = new AppProperties.Supabase("https://example.supabase.co", "anon-key", "service-role-key");
-        var appProperties = new AppProperties(null, null, null, supabase, null, null);
+        var appProperties = new AppProperties(null, null, null, supabase, null, null, null, null);
         supabaseClient = new SupabaseClient(restTemplate, appProperties);
     }
 

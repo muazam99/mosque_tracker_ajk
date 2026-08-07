@@ -46,9 +46,16 @@ app:
       - /auth/**
       - /actuator/health
       - /actuator/health/**
+      - /public/**
   cors:
     allowed-origins:
       - https://ajk.qiyam.com.my
+    # Separate, permissive CORS for the read-only public Islamic API only (see SecurityConfig) —
+    # a public landing page may live on a different origin than the AJK admin app. No credentials
+    # are used on these routes, so a wildcard is safe. Narrow this to the landing page's real
+    # origin(s) once known.
+    public-allowed-origins:
+      - "*"
   supabase:
     url: ${SUPABASE_URL}
     anon-key: ${SUPABASE_ANON_KEY}
@@ -62,3 +69,13 @@ app:
   google:
     places-api-key: ${GOOGLE_PLACES_API_KEY:}
     web-client-id: ${GOOGLE_WEB_CLIENT_ID:}
+  islamic:
+    # Aladhan (aladhan.com) — free, no API key required. Method 17 = JAKIM (Malaysia).
+    aladhan-base-url: ${ALADHAN_BASE_URL:https://api.aladhan.com/v1}
+    default-calculation-method: ${ISLAMIC_DEFAULT_METHOD:JAKIM}
+    # alquran.cloud — free, no API key required.
+    quran-api-base-url: ${QURAN_API_BASE_URL:https://api.alquran.cloud/v1}
+    # fawazahmed0/hadith-api static dataset served over the jsDelivr CDN — free, no API key.
+    hadith-api-base-url: ${HADITH_API_BASE_URL:https://cdn.jsdelivr.net/gh/fawazahmed0/hadith-api@1}
+  rate-limit:
+    public-requests-per-minute: ${PUBLIC_RATE_LIMIT_PER_MINUTE:60}

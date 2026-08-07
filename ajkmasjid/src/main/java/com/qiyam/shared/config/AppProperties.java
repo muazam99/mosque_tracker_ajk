@@ -14,12 +14,24 @@ public record AppProperties(
         Cors cors,
         Supabase supabase,
         Storage storage,
-        Google google
+        Google google,
+        Islamic islamic,
+        RateLimit rateLimit
 ) {
     public record Jwt(@NotBlank String secret, long expirationMs, String issuer) {}
     public record Security(List<String> permittedPaths, boolean swaggerEnabled) {}
-    public record Cors(List<String> allowedOrigins) {}
+    public record Cors(List<String> allowedOrigins, List<String> publicAllowedOrigins) {}
     public record Supabase(String url, String anonKey, String serviceRoleKey) {}
     public record Storage(String r2AccountId, String r2AccessKeyId, String r2SecretAccessKey, String r2BucketName, String r2BaseUrl) {}
     public record Google(String placesApiKey, String webClientId) {}
+
+    /** Config for the public, unauthenticated Islamic data API (prayer times / hijri / quran / hadith). */
+    public record Islamic(
+            String aladhanBaseUrl,
+            String defaultCalculationMethod,
+            String quranApiBaseUrl,
+            String hadithApiBaseUrl
+    ) {}
+
+    public record RateLimit(int publicRequestsPerMinute) {}
 }
