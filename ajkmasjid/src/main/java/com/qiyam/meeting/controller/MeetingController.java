@@ -2,6 +2,8 @@ package com.qiyam.meeting.controller;
 
 import com.qiyam.meeting.dto.MeetingRequest;
 import com.qiyam.meeting.service.MeetingService;
+import com.qiyam.shared.dto.PagedResponse;
+import com.qiyam.shared.util.Pagination;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -10,7 +12,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -22,14 +23,21 @@ public class MeetingController {
 
     @GetMapping
     @Operation(summary = "Get all meetings", description = "Returns a paginated list of all meetings")
-    public ResponseEntity<List<Map<String, Object>>> getAll(
+    public ResponseEntity<PagedResponse<Map<String, Object>>> getAll(
             @Parameter(description = "Maximum number of records to return")
             @RequestParam(defaultValue = "20") int limit,
             @Parameter(description = "Number of records to skip")
             @RequestParam(defaultValue = "0") int offset,
+            @Parameter(description = "1-indexed page number; takes precedence over 'offset' when given")
+            @RequestParam(required = false) Integer page,
+            @Parameter(description = "Alias for 'limit'")
+            @RequestParam(name = "per_page", required = false) Integer perPage,
             @Parameter(description = "Filter by mosque ID")
             @RequestParam(required = false) Integer mosqueId) {
-        return ResponseEntity.ok(meetingService.getAll(limit, offset, mosqueId));
+        var effectiveLimit = Pagination.resolveLimit(perPage, limit);
+        var effectiveOffset = Pagination.resolveOffset(page, effectiveLimit, offset);
+        var resolvedPage = Pagination.resolvePage(page, effectiveOffset, effectiveLimit);
+        return ResponseEntity.ok(meetingService.getAll(effectiveLimit, effectiveOffset, resolvedPage, mosqueId));
     }
 
     @GetMapping("/{id}")

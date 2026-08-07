@@ -3,6 +3,7 @@ package com.qiyam.donation.service;
 import com.qiyam.donation.dto.CampaignRequest;
 import com.qiyam.donation.dto.DonationRequest;
 import com.qiyam.shared.client.SupabaseClient;
+import com.qiyam.shared.dto.PagedResponse;
 import com.qiyam.shared.security.AccessControlService;
 import com.qiyam.shared.security.Permission;
 import lombok.RequiredArgsConstructor;
@@ -28,15 +29,16 @@ public class DonationService {
 
     // ─── Donations ─────────────────────────────────────────
 
-    public List<Map<String, Object>> getAllDonations(int limit, int offset, Integer mosqueId) {
+    public PagedResponse<Map<String, Object>> getAllDonations(int limit, int offset, int page, Integer mosqueId) {
         var scope = accessControlService.resolveMosqueScope(null, Permission.DONATIONS_READ, mosqueId);
-        if (scope != null && scope.isEmpty()) return List.of();
+        if (scope != null && scope.isEmpty()) return PagedResponse.empty(page, limit);
         var params = new HashMap<String, String>();
         params.put("limit", String.valueOf(limit));
         params.put("offset", String.valueOf(offset));
         params.put("order", "date.desc");
         applyMosqueScope(params, scope);
-        return (List<Map<String, Object>>) (List<?>) supabaseClient.getAll("donations", params, Map.class);
+        var result = supabaseClient.getAllPaged("donations", params, Map.class);
+        return PagedResponse.of((List<Map<String, Object>>) (List<?>) result.data(), result.total(), page, limit);
     }
 
     public Optional<Map<String, Object>> getDonationById(Long id) {
@@ -48,6 +50,9 @@ public class DonationService {
 
     public Map<String, Object> createDonation(DonationRequest request) {
         accessControlService.requirePermission(null, Permission.DONATIONS_WRITE);
+        if (request.getMosqueId() != null) {
+            accessControlService.requireRowMosqueAccess(null, request.getMosqueId());
+        }
         var body = donationToMap(request);
         var result = supabaseClient.post("donations", body, Map.class);
         return result != null ? result : Map.of();
@@ -67,15 +72,16 @@ public class DonationService {
 
     // ─── Campaigns ─────────────────────────────────────────
 
-    public List<Map<String, Object>> getAllCampaigns(int limit, int offset, Integer mosqueId) {
+    public PagedResponse<Map<String, Object>> getAllCampaigns(int limit, int offset, int page, Integer mosqueId) {
         var scope = accessControlService.resolveMosqueScope(null, Permission.DONATIONS_READ, mosqueId);
-        if (scope != null && scope.isEmpty()) return List.of();
+        if (scope != null && scope.isEmpty()) return PagedResponse.empty(page, limit);
         var params = new HashMap<String, String>();
         params.put("limit", String.valueOf(limit));
         params.put("offset", String.valueOf(offset));
         params.put("order", "start_date.desc");
         applyMosqueScope(params, scope);
-        return (List<Map<String, Object>>) (List<?>) supabaseClient.getAll("donation_campaigns", params, Map.class);
+        var result = supabaseClient.getAllPaged("donation_campaigns", params, Map.class);
+        return PagedResponse.of((List<Map<String, Object>>) (List<?>) result.data(), result.total(), page, limit);
     }
 
     public Optional<Map<String, Object>> getCampaignById(Long id) {
@@ -107,10 +113,15 @@ public class DonationService {
 
     private Map<String, Object> donationToMap(DonationRequest r) {
         var map = new HashMap<String, Object>();
+        putIfNotNull(map, "mosque_id", r.getMosqueId());
         putIfNotNull(map, "campaign_id", r.getCampaignId());
         putIfNotNull(map, "donor_name", r.getDonorName());
+        putIfNotNull(map, "donor_email", r.getDonorEmail());
+        putIfNotNull(map, "donor_phone", r.getDonorPhone());
         putIfNotNull(map, "amount", r.getAmount());
         putIfNotNull(map, "payment_method", r.getPaymentMethod());
+        putIfNotNull(map, "type", r.getType());
+        putIfNotNull(map, "is_anonymous", r.getIsAnonymous());
         putIfNotNull(map, "status", r.getStatus());
         putIfNotNull(map, "date", r.getDate());
         putIfNotNull(map, "notes", r.getNotes());

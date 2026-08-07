@@ -4,6 +4,8 @@ import com.qiyam.committee.dto.CommitteeRequest;
 import com.qiyam.committee.dto.MemberRequest;
 import com.qiyam.committee.dto.RoleMemberRequest;
 import com.qiyam.committee.service.CommitteeService;
+import com.qiyam.shared.dto.PagedResponse;
+import com.qiyam.shared.util.Pagination;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -24,12 +26,19 @@ public class CommitteeController {
 
     @GetMapping
     @Operation(summary = "Get all committees", description = "Returns a paginated list of all committees (a global, organization-wide role catalog — not mosque-scoped)")
-    public ResponseEntity<List<Map<String, Object>>> getAll(
+    public ResponseEntity<PagedResponse<Map<String, Object>>> getAll(
             @Parameter(description = "Maximum number of records to return")
             @RequestParam(defaultValue = "20") int limit,
             @Parameter(description = "Number of records to skip")
-            @RequestParam(defaultValue = "0") int offset) {
-        return ResponseEntity.ok(committeeService.getAllCommittees(limit, offset));
+            @RequestParam(defaultValue = "0") int offset,
+            @Parameter(description = "1-indexed page number; takes precedence over 'offset' when given")
+            @RequestParam(required = false) Integer page,
+            @Parameter(description = "Alias for 'limit'")
+            @RequestParam(name = "per_page", required = false) Integer perPage) {
+        var effectiveLimit = Pagination.resolveLimit(perPage, limit);
+        var effectiveOffset = Pagination.resolveOffset(page, effectiveLimit, offset);
+        var resolvedPage = Pagination.resolvePage(page, effectiveOffset, effectiveLimit);
+        return ResponseEntity.ok(committeeService.getAllCommittees(effectiveLimit, effectiveOffset, resolvedPage));
     }
 
     @GetMapping("/{id}")

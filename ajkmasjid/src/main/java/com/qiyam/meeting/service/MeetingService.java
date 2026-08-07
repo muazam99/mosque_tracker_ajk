@@ -2,6 +2,7 @@ package com.qiyam.meeting.service;
 
 import com.qiyam.meeting.dto.MeetingRequest;
 import com.qiyam.shared.client.SupabaseClient;
+import com.qiyam.shared.dto.PagedResponse;
 import com.qiyam.shared.security.AccessControlService;
 import com.qiyam.shared.security.Permission;
 import lombok.RequiredArgsConstructor;
@@ -31,15 +32,16 @@ public class MeetingService {
         row.ifPresent(r -> accessControlService.requireRowMosqueAccess(null, ((Map<?, ?>) r).get("mosque_id")));
     }
 
-    public List<Map<String, Object>> getAll(int limit, int offset, Integer mosqueId) {
+    public PagedResponse<Map<String, Object>> getAll(int limit, int offset, int page, Integer mosqueId) {
         var scope = accessControlService.resolveMosqueScope(null, Permission.MEETINGS_READ, mosqueId);
-        if (scope != null && scope.isEmpty()) return List.of();
+        if (scope != null && scope.isEmpty()) return PagedResponse.empty(page, limit);
         var params = new HashMap<String, String>();
         params.put("limit", String.valueOf(limit));
         params.put("offset", String.valueOf(offset));
         params.put("order", "scheduled_at.desc");
         applyMosqueScope(params, scope);
-        return (List<Map<String, Object>>) (List<?>) supabaseClient.getAll("meetings", params, Map.class);
+        var result = supabaseClient.getAllPaged("meetings", params, Map.class);
+        return PagedResponse.of((List<Map<String, Object>>) (List<?>) result.data(), result.total(), page, limit);
     }
 
     public Optional<Map<String, Object>> getById(Long id) {

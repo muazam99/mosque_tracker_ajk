@@ -4,6 +4,7 @@ import com.qiyam.finance.dto.FinanceAccountRequest;
 import com.qiyam.finance.dto.FinanceReportRequest;
 import com.qiyam.finance.dto.FinanceTransactionRequest;
 import com.qiyam.shared.client.SupabaseClient;
+import com.qiyam.shared.dto.PagedResponse;
 import com.qiyam.shared.security.AccessControlService;
 import com.qiyam.shared.security.Permission;
 import lombok.RequiredArgsConstructor;
@@ -32,15 +33,16 @@ public class FinanceService {
 
     // ─── Accounts ─────────────────────────────────────────────
 
-    public List<Map<String, Object>> getAllAccounts(int limit, int offset, Integer mosqueId) {
+    public PagedResponse<Map<String, Object>> getAllAccounts(int limit, int offset, int page, Integer mosqueId) {
         var scope = accessControlService.resolveMosqueScope(null, Permission.FINANCE_READ, mosqueId);
-        if (scope != null && scope.isEmpty()) return List.of();
+        if (scope != null && scope.isEmpty()) return PagedResponse.empty(page, limit);
         var params = new HashMap<String, String>();
         params.put("limit", String.valueOf(limit));
         params.put("offset", String.valueOf(offset));
         params.put("order", "created_at.desc");
         applyMosqueScope(params, scope);
-        return (List<Map<String, Object>>) (List<?>) supabaseClient.getAll("finance_accounts", params, Map.class);
+        var result = supabaseClient.getAllPaged("finance_accounts", params, Map.class);
+        return PagedResponse.of((List<Map<String, Object>>) (List<?>) result.data(), result.total(), page, limit);
     }
 
     public Optional<Map<String, Object>> getAccountById(Long id) {
@@ -82,15 +84,16 @@ public class FinanceService {
 
     // ─── Transactions ─────────────────────────────────────────
 
-    public List<Map<String, Object>> getAllTransactions(int limit, int offset, Integer mosqueId) {
+    public PagedResponse<Map<String, Object>> getAllTransactions(int limit, int offset, int page, Integer mosqueId) {
         var scope = accessControlService.resolveMosqueScope(null, Permission.FINANCE_READ, mosqueId);
-        if (scope != null && scope.isEmpty()) return List.of();
+        if (scope != null && scope.isEmpty()) return PagedResponse.empty(page, limit);
         var params = new HashMap<String, String>();
         params.put("limit", String.valueOf(limit));
         params.put("offset", String.valueOf(offset));
         params.put("order", "transaction_date.desc");
         applyMosqueScope(params, scope);
-        return (List<Map<String, Object>>) (List<?>) supabaseClient.getAll("finance_transactions", params, Map.class);
+        var result = supabaseClient.getAllPaged("finance_transactions", params, Map.class);
+        return PagedResponse.of((List<Map<String, Object>>) (List<?>) result.data(), result.total(), page, limit);
     }
 
     public Optional<Map<String, Object>> getTransactionById(Long id) {
@@ -112,15 +115,16 @@ public class FinanceService {
 
     // ─── Reports (finance_audits) ────────────────────────────
 
-    public List<Map<String, Object>> getAllReports(int limit, int offset, Integer mosqueId) {
+    public PagedResponse<Map<String, Object>> getAllReports(int limit, int offset, int page, Integer mosqueId) {
         var scope = accessControlService.resolveMosqueScope(null, Permission.REPORTS_READ, mosqueId);
-        if (scope != null && scope.isEmpty()) return List.of();
+        if (scope != null && scope.isEmpty()) return PagedResponse.empty(page, limit);
         var params = new HashMap<String, String>();
         params.put("limit", String.valueOf(limit));
         params.put("offset", String.valueOf(offset));
         params.put("order", "created_at.desc");
         applyMosqueScope(params, scope);
-        return (List<Map<String, Object>>) (List<?>) supabaseClient.getAll("finance_audits", params, Map.class);
+        var result = supabaseClient.getAllPaged("finance_audits", params, Map.class);
+        return PagedResponse.of((List<Map<String, Object>>) (List<?>) result.data(), result.total(), page, limit);
     }
 
     public Optional<Map<String, Object>> getReportById(Long id) {

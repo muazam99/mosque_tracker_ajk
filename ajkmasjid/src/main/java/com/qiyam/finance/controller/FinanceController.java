@@ -4,6 +4,8 @@ import com.qiyam.finance.dto.FinanceAccountRequest;
 import com.qiyam.finance.dto.FinanceReportRequest;
 import com.qiyam.finance.dto.FinanceTransactionRequest;
 import com.qiyam.finance.service.FinanceService;
+import com.qiyam.shared.dto.PagedResponse;
+import com.qiyam.shared.util.Pagination;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -12,7 +14,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -26,14 +27,21 @@ public class FinanceController {
 
     @GetMapping("/accounts")
     @Operation(summary = "Get all accounts", description = "Returns a paginated list of all financial accounts")
-    public ResponseEntity<List<Map<String, Object>>> getAllAccounts(
+    public ResponseEntity<PagedResponse<Map<String, Object>>> getAllAccounts(
             @Parameter(description = "Maximum number of records to return")
             @RequestParam(defaultValue = "20") int limit,
             @Parameter(description = "Number of records to skip")
             @RequestParam(defaultValue = "0") int offset,
+            @Parameter(description = "1-indexed page number; takes precedence over 'offset' when given")
+            @RequestParam(required = false) Integer page,
+            @Parameter(description = "Alias for 'limit'")
+            @RequestParam(name = "per_page", required = false) Integer perPage,
             @Parameter(description = "Filter by mosque ID")
             @RequestParam(required = false) Integer mosqueId) {
-        return ResponseEntity.ok(financeService.getAllAccounts(limit, offset, mosqueId));
+        var effectiveLimit = Pagination.resolveLimit(perPage, limit);
+        var effectiveOffset = Pagination.resolveOffset(page, effectiveLimit, offset);
+        var resolvedPage = Pagination.resolvePage(page, effectiveOffset, effectiveLimit);
+        return ResponseEntity.ok(financeService.getAllAccounts(effectiveLimit, effectiveOffset, resolvedPage, mosqueId));
     }
 
     @GetMapping("/accounts/{id}")
@@ -70,14 +78,21 @@ public class FinanceController {
 
     @GetMapping("/transactions")
     @Operation(summary = "Get all transactions", description = "Returns a paginated list of all financial transactions")
-    public ResponseEntity<List<Map<String, Object>>> getAllTransactions(
+    public ResponseEntity<PagedResponse<Map<String, Object>>> getAllTransactions(
             @Parameter(description = "Maximum number of records to return")
             @RequestParam(defaultValue = "20") int limit,
             @Parameter(description = "Number of records to skip")
             @RequestParam(defaultValue = "0") int offset,
+            @Parameter(description = "1-indexed page number; takes precedence over 'offset' when given")
+            @RequestParam(required = false) Integer page,
+            @Parameter(description = "Alias for 'limit'")
+            @RequestParam(name = "per_page", required = false) Integer perPage,
             @Parameter(description = "Filter by mosque ID")
             @RequestParam(required = false) Integer mosqueId) {
-        return ResponseEntity.ok(financeService.getAllTransactions(limit, offset, mosqueId));
+        var effectiveLimit = Pagination.resolveLimit(perPage, limit);
+        var effectiveOffset = Pagination.resolveOffset(page, effectiveLimit, offset);
+        var resolvedPage = Pagination.resolvePage(page, effectiveOffset, effectiveLimit);
+        return ResponseEntity.ok(financeService.getAllTransactions(effectiveLimit, effectiveOffset, resolvedPage, mosqueId));
     }
 
     @GetMapping("/transactions/{id}")
@@ -99,14 +114,21 @@ public class FinanceController {
 
     @GetMapping("/reports")
     @Operation(summary = "Get all reports", description = "Returns a paginated list of all financial audit reports")
-    public ResponseEntity<List<Map<String, Object>>> getAllReports(
+    public ResponseEntity<PagedResponse<Map<String, Object>>> getAllReports(
             @Parameter(description = "Maximum number of records to return")
             @RequestParam(defaultValue = "20") int limit,
             @Parameter(description = "Number of records to skip")
             @RequestParam(defaultValue = "0") int offset,
+            @Parameter(description = "1-indexed page number; takes precedence over 'offset' when given")
+            @RequestParam(required = false) Integer page,
+            @Parameter(description = "Alias for 'limit'")
+            @RequestParam(name = "per_page", required = false) Integer perPage,
             @Parameter(description = "Filter by mosque ID")
             @RequestParam(required = false) Integer mosqueId) {
-        return ResponseEntity.ok(financeService.getAllReports(limit, offset, mosqueId));
+        var effectiveLimit = Pagination.resolveLimit(perPage, limit);
+        var effectiveOffset = Pagination.resolveOffset(page, effectiveLimit, offset);
+        var resolvedPage = Pagination.resolvePage(page, effectiveOffset, effectiveLimit);
+        return ResponseEntity.ok(financeService.getAllReports(effectiveLimit, effectiveOffset, resolvedPage, mosqueId));
     }
 
     @GetMapping("/reports/{id}")

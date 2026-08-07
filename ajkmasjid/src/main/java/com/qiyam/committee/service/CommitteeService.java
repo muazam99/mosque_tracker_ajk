@@ -4,6 +4,7 @@ import com.qiyam.committee.dto.CommitteeRequest;
 import com.qiyam.committee.dto.MemberRequest;
 import com.qiyam.committee.dto.RoleMemberRequest;
 import com.qiyam.shared.client.SupabaseClient;
+import com.qiyam.shared.dto.PagedResponse;
 import com.qiyam.shared.exception.ConflictException;
 import com.qiyam.shared.exception.ResourceNotFoundException;
 import com.qiyam.shared.security.AccessControlService;
@@ -24,13 +25,14 @@ public class CommitteeService {
     // NOTE: committee_roles is a global, organization-wide role catalog — it is
     // intentionally NOT mosque-scoped. Mosque scoping lives on committee_role_member.
 
-    public List<Map<String, Object>> getAllCommittees(int limit, int offset) {
+    public PagedResponse<Map<String, Object>> getAllCommittees(int limit, int offset, int page) {
         accessControlService.requirePermission(null, Permission.MEMBERS_READ);
         var params = new HashMap<String, String>();
         params.put("limit", String.valueOf(limit));
         params.put("offset", String.valueOf(offset));
         params.put("order", "created_at.desc");
-        return (List<Map<String, Object>>) (List<?>) supabaseClient.getAll("committee_roles", params, Map.class);
+        var result = supabaseClient.getAllPaged("committee_roles", params, Map.class);
+        return PagedResponse.of((List<Map<String, Object>>) (List<?>) result.data(), result.total(), page, limit);
     }
 
     public Optional<Map<String, Object>> getCommitteeById(String id) {

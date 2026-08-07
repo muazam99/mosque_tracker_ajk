@@ -2,15 +2,18 @@ package com.qiyam.document.controller;
 
 import com.qiyam.document.dto.DocumentRequest;
 import com.qiyam.document.service.DocumentService;
+import com.qiyam.shared.dto.PagedResponse;
+import com.qiyam.shared.util.Pagination;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
-import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -22,14 +25,21 @@ public class DocumentController {
 
     @GetMapping
     @Operation(summary = "Get all documents", description = "Returns a paginated list of all documents")
-    public ResponseEntity<List<Map<String, Object>>> getAll(
+    public ResponseEntity<PagedResponse<Map<String, Object>>> getAll(
             @Parameter(description = "Maximum number of records to return")
             @RequestParam(defaultValue = "20") int limit,
             @Parameter(description = "Number of records to skip")
             @RequestParam(defaultValue = "0") int offset,
+            @Parameter(description = "1-indexed page number; takes precedence over 'offset' when given")
+            @RequestParam(required = false) Integer page,
+            @Parameter(description = "Alias for 'limit'")
+            @RequestParam(name = "per_page", required = false) Integer perPage,
             @Parameter(description = "Filter by mosque ID")
             @RequestParam(required = false) Integer mosqueId) {
-        return ResponseEntity.ok(documentService.getAll(limit, offset, mosqueId));
+        var effectiveLimit = Pagination.resolveLimit(perPage, limit);
+        var effectiveOffset = Pagination.resolveOffset(page, effectiveLimit, offset);
+        var resolvedPage = Pagination.resolvePage(page, effectiveOffset, effectiveLimit);
+        return ResponseEntity.ok(documentService.getAll(effectiveLimit, effectiveOffset, resolvedPage, mosqueId));
     }
 
     @GetMapping("/{id}")
@@ -40,10 +50,14 @@ public class DocumentController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    @PostMapping("/upload")
-    @Operation(summary = "Upload a document", description = "Uploads a new document to the system")
-    public ResponseEntity<Map<String, Object>> upload(@RequestBody DocumentRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(documentService.upload(request));
+    @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Upload a document", description = "Uploads a new document's file to R2 and records its metadata")
+    public ResponseEntity<Map<String, Object>> upload(
+            @Parameter(description = "Mosque ID this document belongs to") @RequestParam Long mosqueId,
+            @Parameter(description = "Display name for the document") @RequestParam String name,
+            @Parameter(description = "Document category") @RequestParam(required = false) String category,
+            @Parameter(description = "The file to upload") @RequestParam("file") MultipartFile file) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(documentService.upload(mosqueId, name, category, file));
     }
 
     @PutMapping("/{id}")

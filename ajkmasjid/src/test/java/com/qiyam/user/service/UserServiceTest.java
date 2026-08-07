@@ -39,18 +39,20 @@ class UserServiceTest {
     @SuppressWarnings("unchecked")
     private Map<String, String> captureUsersQueryParams() {
         ArgumentCaptor<Map<String, String>> captor = ArgumentCaptor.forClass(Map.class);
-        verify(supabaseClient).getAll(eq("users"), captor.capture(), eq(Map.class));
+        verify(supabaseClient).getAllPaged(eq("users"), captor.capture(), eq(Map.class));
         return captor.getValue();
     }
 
     @Test
     void getAll_searchByFullEmail_matchesEmailColumn() {
-        when(supabaseClient.getAll(eq("users"), any(), eq(Map.class)))
-                .thenReturn(List.of(Map.of("id", "u1", "email", "afiqtechno96@gmail.com")));
+        when(supabaseClient.getAllPaged(eq("users"), any(), eq(Map.class)))
+                .thenReturn(new SupabaseClient.PageResult<>(
+                        List.of(Map.of("id", "u1", "email", "afiqtechno96@gmail.com")), 1));
 
-        var result = userService.getAll(20, 0, "afiqtechno96@gmail.com", null);
+        var result = userService.getAll(20, 0, 1, "afiqtechno96@gmail.com", null);
 
-        assertThat(result).hasSize(1);
+        assertThat(result.data()).hasSize(1);
+        assertThat(result.total()).isEqualTo(1);
         var params = captureUsersQueryParams();
         assertThat(params.get("or"))
                 .contains("email.ilike.*afiqtechno96@gmail.com*")
@@ -60,21 +62,23 @@ class UserServiceTest {
 
     @Test
     void getAll_searchByPartialEmail_matchesEmailColumn() {
-        when(supabaseClient.getAll(eq("users"), any(), eq(Map.class)))
-                .thenReturn(List.of(Map.of("id", "u1", "email", "afiqtechno96@gmail.com")));
+        when(supabaseClient.getAllPaged(eq("users"), any(), eq(Map.class)))
+                .thenReturn(new SupabaseClient.PageResult<>(
+                        List.of(Map.of("id", "u1", "email", "afiqtechno96@gmail.com")), 1));
 
-        var result = userService.getAll(20, 0, "afiqtechno", null);
+        var result = userService.getAll(20, 0, 1, "afiqtechno", null);
 
-        assertThat(result).hasSize(1);
+        assertThat(result.data()).hasSize(1);
         var params = captureUsersQueryParams();
         assertThat(params.get("or")).contains("email.ilike.*afiqtechno*");
     }
 
     @Test
     void getAll_noSearchTerm_omitsOrFilter() {
-        when(supabaseClient.getAll(eq("users"), any(), eq(Map.class))).thenReturn(List.of());
+        when(supabaseClient.getAllPaged(eq("users"), any(), eq(Map.class)))
+                .thenReturn(new SupabaseClient.PageResult<>(List.of(), 0));
 
-        userService.getAll(20, 0, null, null);
+        userService.getAll(20, 0, 1, null, null);
 
         var params = captureUsersQueryParams();
         assertThat(params).doesNotContainKey("or");
@@ -82,24 +86,42 @@ class UserServiceTest {
 
     @Test
     void getAll_escapesCommasAndParensInSearchTerm() {
-        when(supabaseClient.getAll(eq("users"), any(), eq(Map.class))).thenReturn(List.of());
+        when(supabaseClient.getAllPaged(eq("users"), any(), eq(Map.class)))
+                .thenReturn(new SupabaseClient.PageResult<>(List.of(), 0));
 
-        userService.getAll(20, 0, "o'brien, (test)", null);
+        userService.getAll(20, 0, 1, "o'brien, (test)", null);
 
         var params = captureUsersQueryParams();
         assertThat(params.get("or")).contains("\\,").contains("\\(").contains("\\)");
+    }
+
+    // ─── pagination metadata ─────────────────────────────────
+
+    @Test
+    void getAll_returnsPagingMetadataFromContentRangeTotal() {
+        when(supabaseClient.getAllPaged(eq("users"), any(), eq(Map.class)))
+                .thenReturn(new SupabaseClient.PageResult<>(
+                        List.of(Map.of("id", "u1")), 47));
+
+        var result = userService.getAll(20, 40, 3, null, null);
+
+        assertThat(result.total()).isEqualTo(47);
+        assertThat(result.page()).isEqualTo(3);
+        assertThat(result.perPage()).isEqualTo(20);
+        assertThat(result.totalPages()).isEqualTo(3); // ceil(47/20)
     }
 
     // ─── mosqueId omission / global search ─────────────────────
 
     @Test
     void getAll_withoutMosqueId_doesNotQueryMosqueCommittees_andReturnsGlobalResults() {
-        when(supabaseClient.getAll(eq("users"), any(), eq(Map.class)))
-                .thenReturn(List.of(Map.of("id", "u1"), Map.of("id", "u2")));
+        when(supabaseClient.getAllPaged(eq("users"), any(), eq(Map.class)))
+                .thenReturn(new SupabaseClient.PageResult<>(
+                        List.of(Map.of("id", "u1"), Map.of("id", "u2")), 2));
 
-        var result = userService.getAll(20, 0, "afiqtechno", null);
+        var result = userService.getAll(20, 0, 1, "afiqtechno", null);
 
-        assertThat(result).hasSize(2);
+        assertThat(result.data()).hasSize(2);
         verify(supabaseClient, never()).getAll(eq("mosque_committees"), any(), eq(Map.class));
         var params = captureUsersQueryParams();
         assertThat(params).doesNotContainKey("id"); // no mosque-membership id filter applied
@@ -110,12 +132,12 @@ class UserServiceTest {
     void getAll_withMosqueId_scopesToMosqueMembers() {
         when(supabaseClient.getAll(eq("mosque_committees"), any(), eq(Map.class)))
                 .thenReturn(List.of(Map.of("user_id", "u1"), Map.of("user_id", "u2")));
-        when(supabaseClient.getAll(eq("users"), any(), eq(Map.class)))
-                .thenReturn(List.of(Map.of("id", "u1")));
+        when(supabaseClient.getAllPaged(eq("users"), any(), eq(Map.class)))
+                .thenReturn(new SupabaseClient.PageResult<>(List.of(Map.of("id", "u1")), 1));
 
-        var result = userService.getAll(20, 0, null, 5L);
+        var result = userService.getAll(20, 0, 1, null, 5L);
 
-        assertThat(result).hasSize(1);
+        assertThat(result.data()).hasSize(1);
         var params = captureUsersQueryParams();
         assertThat(params.get("id")).isEqualTo("in.(u1,u2)");
     }
@@ -125,9 +147,10 @@ class UserServiceTest {
         when(supabaseClient.getAll(eq("mosque_committees"), any(), eq(Map.class)))
                 .thenReturn(List.of());
 
-        var result = userService.getAll(20, 0, null, 5L);
+        var result = userService.getAll(20, 0, 1, null, 5L);
 
-        assertThat(result).isEmpty();
-        verify(supabaseClient, never()).getAll(eq("users"), any(), eq(Map.class));
+        assertThat(result.data()).isEmpty();
+        assertThat(result.total()).isZero();
+        verify(supabaseClient, never()).getAllPaged(eq("users"), any(), eq(Map.class));
     }
 }

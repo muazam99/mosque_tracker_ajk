@@ -86,6 +86,15 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(resp);
     }
 
+    @ExceptionHandler(StorageException.class)
+    public ResponseEntity<ErrorResponse> handleStorageError(StorageException ex, HttpServletRequest req) {
+        var resp = ErrorResponse.builder().status(HttpStatus.BAD_GATEWAY.value())
+                .error("Bad Gateway").message(ex.getMessage())
+                .path(req.getRequestURI()).timestamp(Instant.now()).build();
+        log.error("Storage error: {}", ex.getMessage(), ex);
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(resp);
+    }
+
     @ExceptionHandler(SupabaseException.class)
     public ResponseEntity<ErrorResponse> handleSupabaseError(SupabaseException ex, HttpServletRequest req) {
         var status = resolveHttpStatus(ex.getStatusCode());

@@ -3,6 +3,8 @@ package com.qiyam.donation.controller;
 import com.qiyam.donation.dto.CampaignRequest;
 import com.qiyam.donation.dto.DonationRequest;
 import com.qiyam.donation.service.DonationService;
+import com.qiyam.shared.dto.PagedResponse;
+import com.qiyam.shared.util.Pagination;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -11,7 +13,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -25,14 +26,21 @@ public class DonationController {
 
     @GetMapping
     @Operation(summary = "Get all donations", description = "Returns a paginated list of all donations")
-    public ResponseEntity<List<Map<String, Object>>> getAllDonations(
+    public ResponseEntity<PagedResponse<Map<String, Object>>> getAllDonations(
             @Parameter(description = "Maximum number of records to return")
             @RequestParam(defaultValue = "20") int limit,
             @Parameter(description = "Number of records to skip")
             @RequestParam(defaultValue = "0") int offset,
+            @Parameter(description = "1-indexed page number; takes precedence over 'offset' when given")
+            @RequestParam(required = false) Integer page,
+            @Parameter(description = "Alias for 'limit'")
+            @RequestParam(name = "per_page", required = false) Integer perPage,
             @Parameter(description = "Filter by mosque ID")
             @RequestParam(required = false) Integer mosqueId) {
-        return ResponseEntity.ok(donationService.getAllDonations(limit, offset, mosqueId));
+        var effectiveLimit = Pagination.resolveLimit(perPage, limit);
+        var effectiveOffset = Pagination.resolveOffset(page, effectiveLimit, offset);
+        var resolvedPage = Pagination.resolvePage(page, effectiveOffset, effectiveLimit);
+        return ResponseEntity.ok(donationService.getAllDonations(effectiveLimit, effectiveOffset, resolvedPage, mosqueId));
     }
 
     @GetMapping("/{id}")
@@ -60,14 +68,21 @@ public class DonationController {
 
     @GetMapping("/campaigns")
     @Operation(summary = "Get all campaigns", description = "Returns a paginated list of all fundraising campaigns")
-    public ResponseEntity<List<Map<String, Object>>> getAllCampaigns(
+    public ResponseEntity<PagedResponse<Map<String, Object>>> getAllCampaigns(
             @Parameter(description = "Maximum number of records to return")
             @RequestParam(defaultValue = "20") int limit,
             @Parameter(description = "Number of records to skip")
             @RequestParam(defaultValue = "0") int offset,
+            @Parameter(description = "1-indexed page number; takes precedence over 'offset' when given")
+            @RequestParam(required = false) Integer page,
+            @Parameter(description = "Alias for 'limit'")
+            @RequestParam(name = "per_page", required = false) Integer perPage,
             @Parameter(description = "Filter by mosque ID")
             @RequestParam(required = false) Integer mosqueId) {
-        return ResponseEntity.ok(donationService.getAllCampaigns(limit, offset, mosqueId));
+        var effectiveLimit = Pagination.resolveLimit(perPage, limit);
+        var effectiveOffset = Pagination.resolveOffset(page, effectiveLimit, offset);
+        var resolvedPage = Pagination.resolvePage(page, effectiveOffset, effectiveLimit);
+        return ResponseEntity.ok(donationService.getAllCampaigns(effectiveLimit, effectiveOffset, resolvedPage, mosqueId));
     }
 
     @GetMapping("/campaigns/{id}")
